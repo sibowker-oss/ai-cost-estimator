@@ -68,6 +68,27 @@
     color: var(--accent2);
   }
 
+  /* Industry select */
+  .industry-select {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238b8fa3' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+  }
+  .industry-select:focus { border-color: var(--accent); }
+  .industry-select option { background: var(--card); color: var(--text); }
+
   /* Sliders */
   .control-group { margin-bottom: 1.25rem; }
   .control-group:last-child { margin-bottom: 0; }
@@ -548,6 +569,25 @@
         <h2>Company Profile</h2>
         <div class="control-group">
           <div class="control-label">
+            <span>Industry</span>
+          </div>
+          <select class="industry-select" id="select-industry">
+            <option value="technology">Technology</option>
+            <option value="telecom">Telecommunications</option>
+            <option value="financial">Financial Services</option>
+            <option value="healthcare">Healthcare & Life Sciences</option>
+            <option value="manufacturing">Manufacturing</option>
+            <option value="retail">Retail & E-Commerce</option>
+            <option value="energy">Energy & Utilities</option>
+            <option value="government">Government & Public Sector</option>
+            <option value="professional">Professional Services</option>
+            <option value="media">Media & Entertainment</option>
+            <option value="education">Education</option>
+            <option value="logistics">Logistics & Transportation</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <div class="control-label">
             <span>Total Employees</span>
             <span class="control-value" id="val-employees">500</span>
           </div>
@@ -774,6 +814,23 @@ const DEPARTMENTS = [
   { id: 'data',         name: 'Data & Analytics',  pctOfCompany: 0.07, aiIntensity: 1.7,  color: '#c084fc', defaultOn: true },
 ];
 
+// Industry profiles: department size (pctOfCompany) and which are on by default
+// Each row: [engineering, sales, marketing, support, hr, finance, legal, operations, product, data]
+const INDUSTRY_PROFILES = {
+  technology:     { pct: [0.30, 0.12, 0.08, 0.08, 0.04, 0.04, 0.03, 0.06, 0.10, 0.15], on: [1,1,1,1,0,0,0,0,1,1] },
+  telecom:        { pct: [0.18, 0.10, 0.06, 0.18, 0.04, 0.05, 0.04, 0.18, 0.05, 0.12], on: [1,1,0,1,0,0,0,1,1,1] },
+  financial:      { pct: [0.12, 0.10, 0.06, 0.10, 0.04, 0.15, 0.12, 0.10, 0.06, 0.15], on: [1,1,0,1,0,1,1,0,0,1] },
+  healthcare:     { pct: [0.08, 0.08, 0.05, 0.12, 0.06, 0.06, 0.10, 0.25, 0.05, 0.15], on: [1,0,0,1,1,0,1,1,0,1] },
+  manufacturing:  { pct: [0.15, 0.10, 0.05, 0.06, 0.05, 0.06, 0.04, 0.30, 0.06, 0.13], on: [1,1,0,0,0,0,0,1,1,1] },
+  retail:         { pct: [0.10, 0.18, 0.15, 0.18, 0.05, 0.05, 0.03, 0.12, 0.06, 0.08], on: [1,1,1,1,0,0,0,1,0,1] },
+  energy:         { pct: [0.14, 0.06, 0.04, 0.08, 0.04, 0.06, 0.08, 0.30, 0.05, 0.15], on: [1,0,0,0,0,0,1,1,0,1] },
+  government:     { pct: [0.10, 0.03, 0.04, 0.15, 0.08, 0.08, 0.12, 0.25, 0.04, 0.11], on: [1,0,0,1,1,0,1,1,0,1] },
+  professional:   { pct: [0.08, 0.18, 0.10, 0.08, 0.06, 0.08, 0.08, 0.15, 0.06, 0.13], on: [0,1,1,1,0,1,1,1,0,1] },
+  media:          { pct: [0.15, 0.10, 0.20, 0.06, 0.04, 0.04, 0.05, 0.08, 0.15, 0.13], on: [1,1,1,0,0,0,0,0,1,1] },
+  education:      { pct: [0.08, 0.05, 0.08, 0.12, 0.08, 0.06, 0.06, 0.30, 0.05, 0.12], on: [1,0,0,1,1,0,0,1,0,1] },
+  logistics:      { pct: [0.10, 0.10, 0.05, 0.12, 0.05, 0.06, 0.04, 0.32, 0.04, 0.12], on: [1,1,0,1,0,0,0,1,0,1] },
+};
+
 const PROVIDERS = {
   openai: {
     name: 'OpenAI',
@@ -848,6 +905,7 @@ const COST_CATEGORIES = [
 
 // ─── State ───
 let state = {
+  industry: 'technology',
   employees: 500,
   adoption: 30,
   intensity: 3,
@@ -864,6 +922,34 @@ let state = {
 DEPARTMENTS.forEach(d => state.departments[d.id] = d.defaultOn);
 
 // ─── DOM Setup ───
+function applyIndustryProfile(industryId) {
+  const profile = INDUSTRY_PROFILES[industryId];
+  if (!profile) return;
+  DEPARTMENTS.forEach((dept, i) => {
+    dept.pctOfCompany = profile.pct[i];
+    state.departments[dept.id] = !!profile.on[i];
+  });
+  // Update toggle UI
+  DEPARTMENTS.forEach(dept => {
+    const btn = document.querySelector(`.dept-toggle[data-dept="${dept.id}"]`);
+    if (btn) {
+      btn.classList.toggle('on', state.departments[dept.id]);
+    }
+  });
+}
+
+function initIndustry() {
+  const select = document.getElementById('select-industry');
+  select.value = state.industry;
+  select.addEventListener('change', () => {
+    state.industry = select.value;
+    applyIndustryProfile(state.industry);
+    recalc();
+  });
+  // Apply initial profile
+  applyIndustryProfile(state.industry);
+}
+
 function initDepartments() {
   const list = document.getElementById('dept-list');
   DEPARTMENTS.forEach(dept => {
@@ -1334,6 +1420,7 @@ function renderCostCategories(total) {
 
 // ─── Init ───
 initDepartments();
+initIndustry();
 initProviders();
 initSliders();
 initAgents();
