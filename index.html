@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Spend Estimator — 3-Year Projection</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d2e;
+    --border: #2a2d3e;
+    --text: #e2e4ed;
+    --muted: #8b8fa3;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --green: #34d399;
+    --orange: #fb923c;
+    --red: #f87171;
+    --blue: #60a5fa;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+  header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent2), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.5rem;
+  }
+  header p { color: var(--muted); font-size: 1.05rem; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+  .panel h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    color: var(--accent2);
+  }
+
+  /* Sliders */
+  .control-group { margin-bottom: 1.25rem; }
+  .control-group:last-child { margin-bottom: 0; }
+  .control-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.4rem;
+  }
+  .control-label span:first-child {
+    font-size: 0.88rem;
+    font-weight: 500;
+  }
+  .control-value {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--accent2);
+    min-width: 80px;
+    text-align: right;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--accent2);
+    cursor: pointer;
+  }
+
+  /* Provider select */
+  .provider-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .provider-btn.sovereign {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(59,130,246,0.08));
+    border-color: #334155;
+  }
+  .provider-btn.sovereign .price-hint { color: #60a5fa; }
+  .sovereign-badge {
+    display: inline-block;
+    font-size: 0.58rem;
+    background: rgba(96,165,250,0.15);
+    color: #60a5fa;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+    vertical-align: middle;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+  .provider-btn {
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 500;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .provider-btn:hover { border-color: var(--muted); }
+  .provider-btn.active {
+    border-color: var(--accent);
+    background: rgba(99,102,241,0.12);
+    color: var(--accent2);
+  }
+  .provider-btn .price-hint {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* Department toggles */
+  .dept-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .dept-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.6rem;
+    align-items: center;
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 0.55rem 0.75rem;
+  }
+  .dept-toggle {
+    width: 36px; height: 20px;
+    background: var(--border);
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s;
+  }
+  .dept-toggle::after {
+    content: '';
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: all 0.2s;
+  }
+  .dept-toggle.on { background: var(--accent); }
+  .dept-toggle.on::after {
+    left: 19px;
+    background: white;
+  }
+  .dept-name { font-size: 0.82rem; font-weight: 500; }
+  .dept-users {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  /* Results */
+  .results-area { display: flex; flex-direction: column; gap: 1.5rem; }
+
+  .totals-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+  @media (max-width: 600px) {
+    .totals-row { grid-template-columns: repeat(2, 1fr); }
+  }
+  .total-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    text-align: center;
+  }
+  .total-card .label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.35rem;
+  }
+  .total-card .amount {
+    font-size: 1.6rem;
+    font-weight: 700;
+  }
+  .total-card .sub {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 0.25rem;
+  }
+  .yr1 .amount { color: var(--blue); }
+  .yr2 .amount { color: var(--orange); }
+  .yr3 .amount { color: var(--green); }
+  .total .amount { color: var(--accent2); }
+
+  /* Chart */
+  .chart-container {
+    position: relative;
+    height: 320px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+  .chart-container h2 { margin-bottom: 1rem; }
+  .chart-area {
+    position: relative;
+    height: 240px;
+    display: flex;
+    align-items: flex-end;
+    gap: 0;
+    padding-left: 60px;
+    padding-bottom: 30px;
+  }
+  .chart-y-labels {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 30px;
+    width: 55px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-right: 8px;
+  }
+  .chart-y-labels span {
+    font-size: 0.68rem;
+    color: var(--muted);
+  }
+  .chart-bars {
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    height: 100%;
+    gap: 0;
+    position: relative;
+  }
+  .chart-month-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    justify-content: flex-end;
+  }
+  .chart-bar {
+    width: 70%;
+    max-width: 28px;
+    border-radius: 3px 3px 0 0;
+    min-height: 2px;
+    transition: height 0.4s ease;
+    position: relative;
+    cursor: pointer;
+  }
+  .chart-bar:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    z-index: 10;
+  }
+  .chart-label {
+    font-size: 0.6rem;
+    color: var(--muted);
+    margin-top: 4px;
+    text-align: center;
+  }
+
+  /* Breakdown table */
+  .breakdown-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .breakdown-table th {
+    text-align: left;
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .breakdown-table th:not(:first-child) { text-align: right; }
+  .breakdown-table td {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(42,45,62,0.5);
+  }
+  .breakdown-table td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+  .breakdown-table tr:last-child td { border-bottom: none; }
+  .breakdown-table .dept-color {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+  }
+
+  .section-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 0.6rem;
+    margin-top: 0.5rem;
+  }
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1rem 0;
+  }
+
+  .assumptions {
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.7;
+    margin-top: 0.75rem;
+  }
+  .assumptions strong { color: var(--text); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>AI Spend Estimator</h1>
+    <p>Model your company's AI investment over the next 3 years</p>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT PANEL: Controls -->
+    <div style="display:flex;flex-direction:column;gap:1.5rem;">
+      <div class="panel">
+        <h2>Company Profile</h2>
+        <div class="control-group">
+          <div class="control-label">
+            <span>Total Employees</span>
+            <span class="control-value" id="val-employees">500</span>
+          </div>
+          <input type="range" id="slider-employees" min="10" max="50000" value="500" step="10">
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span>AI Adoption Rate (% of eligible staff)</span>
+            <span class="control-value" id="val-adoption">30%</span>
+          </div>
+          <input type="range" id="slider-adoption" min="5" max="100" value="30">
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span>Usage Intensity</span>
+            <span class="control-value" id="val-intensity">Medium</span>
+          </div>
+          <input type="range" id="slider-intensity" min="1" max="5" value="3">
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span>Year-over-Year Growth</span>
+            <span class="control-value" id="val-growth">40%</span>
+          </div>
+          <input type="range" id="slider-growth" min="0" max="100" value="40">
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>AI Provider</h2>
+        <div class="provider-grid" id="provider-grid">
+          <button class="provider-btn active" data-provider="openai">
+            OpenAI
+            <span class="price-hint">GPT-4o / o3</span>
+          </button>
+          <button class="provider-btn" data-provider="anthropic">
+            Anthropic
+            <span class="price-hint">Claude Opus / Sonnet</span>
+          </button>
+          <button class="provider-btn" data-provider="google">
+            Google
+            <span class="price-hint">Gemini 2.5</span>
+          </button>
+          <button class="provider-btn" data-provider="meta">
+            Meta (self-host)
+            <span class="price-hint">Llama 4 on-prem</span>
+          </button>
+          <button class="provider-btn sovereign" data-provider="ms_sovereign">
+            Microsoft Azure <span class="sovereign-badge">Sovereign</span>
+            <span class="price-hint">Azure OpenAI — Gov / Sovereign Cloud</span>
+          </button>
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span>Enterprise Tier</span>
+            <span class="control-value" id="val-tier">API</span>
+          </div>
+          <input type="range" id="slider-tier" min="1" max="3" value="2">
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Departments Using AI</h2>
+        <div class="dept-list" id="dept-list"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: Results -->
+    <div class="results-area">
+      <div class="totals-row">
+        <div class="total-card yr1">
+          <div class="label">Year 1</div>
+          <div class="amount" id="total-yr1">$0</div>
+          <div class="sub" id="monthly-yr1">$0/mo</div>
+        </div>
+        <div class="total-card yr2">
+          <div class="label">Year 2</div>
+          <div class="amount" id="total-yr2">$0</div>
+          <div class="sub" id="monthly-yr2">$0/mo</div>
+        </div>
+        <div class="total-card yr3">
+          <div class="label">Year 3</div>
+          <div class="amount" id="total-yr3">$0</div>
+          <div class="sub" id="monthly-yr3">$0/mo</div>
+        </div>
+        <div class="total-card total">
+          <div class="label">3-Year Total</div>
+          <div class="amount" id="total-all">$0</div>
+          <div class="sub" id="per-employee">$0/employee</div>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h2>Monthly Spend Projection</h2>
+        <div class="chart-area">
+          <div class="chart-y-labels" id="chart-y-labels"></div>
+          <div class="chart-bars" id="chart-bars"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Department Breakdown — Year 1</h2>
+        <table class="breakdown-table" id="breakdown-table">
+          <thead>
+            <tr>
+              <th>Department</th>
+              <th>AI Users</th>
+              <th>Avg $/User/Mo</th>
+              <th>Year 1</th>
+              <th>Year 2</th>
+              <th>Year 3</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h2>Cost Breakdown</h2>
+        <div class="legend" id="cost-legend"></div>
+        <div id="cost-bars" style="margin-top:1rem;"></div>
+        <div class="assumptions" style="margin-top:1.25rem;">
+          <strong>Assumptions & methodology:</strong><br>
+          Estimates based on published API pricing and typical per-seat enterprise rates as of early 2025.
+          API costs assume average tokens per request scaled by usage intensity.
+          Self-hosted (Meta) includes estimated GPU compute costs via cloud providers.
+          Year-over-year growth compounds adoption rate and usage intensity.
+          <strong>Microsoft Sovereign Cloud</strong> pricing reflects the ~40-60% premium typical of Azure Government and
+          Microsoft Cloud for Sovereignty regions due to dedicated infrastructure, data residency guarantees,
+          FedRAMP/IL5 compliance, restricted personnel clearances, and isolated network fabric.
+          Enterprise tier includes Azure Confidential Computing, managed HSM, and sovereignty controls.<br>
+          Actual costs vary significantly based on specific use cases, negotiated contracts, and volume discounts.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Data Model ───
+const DEPARTMENTS = [
+  { id: 'engineering',  name: 'Engineering',       pctOfCompany: 0.25, aiIntensity: 1.8,  color: '#6366f1', defaultOn: true },
+  { id: 'sales',        name: 'Sales',             pctOfCompany: 0.15, aiIntensity: 1.2,  color: '#60a5fa', defaultOn: true },
+  { id: 'marketing',    name: 'Marketing',         pctOfCompany: 0.10, aiIntensity: 1.4,  color: '#34d399', defaultOn: true },
+  { id: 'support',      name: 'Customer Support',  pctOfCompany: 0.12, aiIntensity: 1.6,  color: '#fb923c', defaultOn: true },
+  { id: 'hr',           name: 'HR & People',       pctOfCompany: 0.05, aiIntensity: 0.8,  color: '#f87171', defaultOn: false },
+  { id: 'finance',      name: 'Finance',           pctOfCompany: 0.06, aiIntensity: 0.9,  color: '#a78bfa', defaultOn: false },
+  { id: 'legal',        name: 'Legal & Compliance', pctOfCompany: 0.04, aiIntensity: 0.7, color: '#fbbf24', defaultOn: false },
+  { id: 'operations',   name: 'Operations',        pctOfCompany: 0.10, aiIntensity: 1.0,  color: '#2dd4bf', defaultOn: false },
+  { id: 'product',      name: 'Product',           pctOfCompany: 0.06, aiIntensity: 1.3,  color: '#f472b6', defaultOn: true },
+  { id: 'data',         name: 'Data & Analytics',  pctOfCompany: 0.07, aiIntensity: 1.7,  color: '#c084fc', defaultOn: true },
+];
+
+// Monthly cost per AI user by provider and tier
+// Tiers: 1=seats/chat, 2=API, 3=enterprise API + platform
+const PROVIDERS = {
+  openai: {
+    name: 'OpenAI',
+    tiers: {
+      1: { name: 'ChatGPT Team', base: 30, label: 'Seats' },
+      2: { name: 'API (GPT-4o)', base: 45, label: 'API' },
+      3: { name: 'Enterprise API', base: 75, label: 'Enterprise' },
+    }
+  },
+  anthropic: {
+    name: 'Anthropic',
+    tiers: {
+      1: { name: 'Claude Team', base: 30, label: 'Seats' },
+      2: { name: 'API (Sonnet/Opus)', base: 50, label: 'API' },
+      3: { name: 'Enterprise', base: 80, label: 'Enterprise' },
+    }
+  },
+  google: {
+    name: 'Google',
+    tiers: {
+      1: { name: 'Gemini Business', base: 25, label: 'Seats' },
+      2: { name: 'Vertex AI', base: 40, label: 'API' },
+      3: { name: 'Enterprise', base: 65, label: 'Enterprise' },
+    }
+  },
+  meta: {
+    name: 'Meta (self-host)',
+    tiers: {
+      1: { name: 'Small GPU cluster', base: 20, label: 'Self-host' },
+      2: { name: 'Medium cluster', base: 35, label: 'Self-host' },
+      3: { name: 'Large cluster + ops', base: 55, label: 'Self-host' },
+    }
+  },
+  ms_sovereign: {
+    name: 'Microsoft Sovereign',
+    tiers: {
+      1: { name: 'Copilot Gov Seats', base: 45, label: 'Seats' },
+      2: { name: 'Azure OpenAI Gov API', base: 70, label: 'API' },
+      3: { name: 'Sovereign Enterprise', base: 120, label: 'Enterprise' },
+    }
+  },
+};
+
+const INTENSITY_LABELS = ['', 'Light', 'Low', 'Medium', 'High', 'Heavy'];
+const INTENSITY_MULT = [0, 0.4, 0.7, 1.0, 1.5, 2.2];
+
+// Cost categories as % of total
+const COST_CATEGORIES = [
+  { name: 'API / Inference', pct: 0.55, color: '#6366f1' },
+  { name: 'Platform & Tooling', pct: 0.18, color: '#60a5fa' },
+  { name: 'Integration & Dev', pct: 0.15, color: '#34d399' },
+  { name: 'Training & Change Mgmt', pct: 0.08, color: '#fb923c' },
+  { name: 'Security & Compliance', pct: 0.04, color: '#f87171' },
+];
+
+// ─── State ───
+let state = {
+  employees: 500,
+  adoption: 30,
+  intensity: 3,
+  growth: 40,
+  provider: 'openai',
+  tier: 2,
+  departments: {},
+};
+DEPARTMENTS.forEach(d => state.departments[d.id] = d.defaultOn);
+
+// ─── DOM Setup ───
+function initDepartments() {
+  const list = document.getElementById('dept-list');
+  DEPARTMENTS.forEach(dept => {
+    const item = document.createElement('div');
+    item.className = 'dept-item';
+    item.innerHTML = `
+      <button class="dept-toggle ${state.departments[dept.id] ? 'on' : ''}" data-dept="${dept.id}"></button>
+      <span class="dept-name" style="color:${dept.color}">${dept.name}</span>
+      <span class="dept-users" id="dept-users-${dept.id}">0 users</span>
+    `;
+    list.appendChild(item);
+  });
+  list.addEventListener('click', e => {
+    const btn = e.target.closest('.dept-toggle');
+    if (!btn) return;
+    const id = btn.dataset.dept;
+    state.departments[id] = !state.departments[id];
+    btn.classList.toggle('on');
+    recalc();
+  });
+}
+
+function initProviders() {
+  document.getElementById('provider-grid').addEventListener('click', e => {
+    const btn = e.target.closest('.provider-btn');
+    if (!btn) return;
+    document.querySelectorAll('.provider-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.provider = btn.dataset.provider;
+    recalc();
+  });
+}
+
+function initSliders() {
+  const bind = (id, key, fmt) => {
+    const slider = document.getElementById(`slider-${id}`);
+    slider.addEventListener('input', () => {
+      state[key] = Number(slider.value);
+      fmt();
+      recalc();
+    });
+  };
+  bind('employees', 'employees', () => {
+    document.getElementById('val-employees').textContent = state.employees.toLocaleString();
+  });
+  bind('adoption', 'adoption', () => {
+    document.getElementById('val-adoption').textContent = state.adoption + '%';
+  });
+  bind('intensity', 'intensity', () => {
+    document.getElementById('val-intensity').textContent = INTENSITY_LABELS[state.intensity];
+  });
+  bind('growth', 'growth', () => {
+    document.getElementById('val-growth').textContent = state.growth + '%';
+  });
+  bind('tier', 'tier', () => {
+    const t = PROVIDERS[state.provider].tiers[state.tier];
+    document.getElementById('val-tier').textContent = t.label;
+  });
+}
+
+// ─── Calculation Engine ───
+function calcDeptCosts() {
+  const baseCost = PROVIDERS[state.provider].tiers[state.tier].base;
+  const intensityMult = INTENSITY_MULT[state.intensity];
+  const adoptionRate = state.adoption / 100;
+  const growthRate = state.growth / 100;
+
+  const results = [];
+  DEPARTMENTS.forEach(dept => {
+    if (!state.departments[dept.id]) return;
+    const deptSize = Math.round(state.employees * dept.pctOfCompany);
+    const aiUsers = Math.max(1, Math.round(deptSize * adoptionRate));
+    const monthlyPerUser = baseCost * intensityMult * dept.aiIntensity;
+
+    const years = [0, 0, 0];
+    for (let yr = 0; yr < 3; yr++) {
+      const scale = Math.pow(1 + growthRate, yr);
+      const usersThisYear = Math.round(aiUsers * Math.min(scale, deptSize / aiUsers));
+      const costPerUser = monthlyPerUser * Math.pow(1 + growthRate * 0.3, yr); // cost grows slower than adoption
+      years[yr] = usersThisYear * costPerUser * 12;
+    }
+    results.push({
+      ...dept,
+      aiUsers,
+      deptSize,
+      monthlyPerUser,
+      years,
+    });
+  });
+  return results;
+}
+
+function getMonthlyProjection() {
+  const depts = calcDeptCosts();
+  const months = [];
+  const growthRate = state.growth / 100;
+
+  for (let m = 0; m < 36; m++) {
+    const yr = m / 12;
+    let total = 0;
+    depts.forEach(d => {
+      const annualBase = d.years[0] / 12;
+      const scale = Math.pow(1 + growthRate, yr);
+      total += annualBase * Math.min(scale, d.deptSize * PROVIDERS[state.provider].tiers[state.tier].base * INTENSITY_MULT[state.intensity] * d.aiIntensity / (d.years[0] / 12 || 1));
+    });
+    // Simpler: interpolate between year starts
+    const yearIdx = Math.floor(m / 12);
+    const monthInYear = m % 12;
+    let monthTotal = 0;
+    depts.forEach(d => {
+      const startMonthly = d.years[yearIdx] / 12;
+      const nextYearMonthly = yearIdx < 2 ? d.years[yearIdx + 1] / 12 : startMonthly * (1 + growthRate * 0.5);
+      monthTotal += startMonthly + (nextYearMonthly - startMonthly) * (monthInYear / 12);
+    });
+    months.push(monthTotal);
+  }
+  return months;
+}
+
+// ─── Formatting ───
+function fmtCurrency(n) {
+  if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return '$' + (n / 1e3).toFixed(0) + 'K';
+  return '$' + Math.round(n).toLocaleString();
+}
+function fmtCurrencyFull(n) {
+  return '$' + Math.round(n).toLocaleString();
+}
+
+// ─── Render ───
+function recalc() {
+  const depts = calcDeptCosts();
+  const monthly = getMonthlyProjection();
+
+  // Update dept user counts
+  DEPARTMENTS.forEach(dept => {
+    const el = document.getElementById(`dept-users-${dept.id}`);
+    if (!state.departments[dept.id]) {
+      el.textContent = 'off';
+      return;
+    }
+    const d = depts.find(x => x.id === dept.id);
+    el.textContent = d ? `~${d.aiUsers} users` : '0 users';
+  });
+
+  // Totals
+  let yr = [0, 0, 0];
+  depts.forEach(d => { yr[0] += d.years[0]; yr[1] += d.years[1]; yr[2] += d.years[2]; });
+  const total3yr = yr[0] + yr[1] + yr[2];
+
+  document.getElementById('total-yr1').textContent = fmtCurrency(yr[0]);
+  document.getElementById('total-yr2').textContent = fmtCurrency(yr[1]);
+  document.getElementById('total-yr3').textContent = fmtCurrency(yr[2]);
+  document.getElementById('total-all').textContent = fmtCurrency(total3yr);
+  document.getElementById('monthly-yr1').textContent = fmtCurrency(yr[0] / 12) + '/mo';
+  document.getElementById('monthly-yr2').textContent = fmtCurrency(yr[1] / 12) + '/mo';
+  document.getElementById('monthly-yr3').textContent = fmtCurrency(yr[2] / 12) + '/mo';
+  document.getElementById('per-employee').textContent = fmtCurrency(total3yr / state.employees) + '/employee';
+
+  // Tier label
+  document.getElementById('val-tier').textContent = PROVIDERS[state.provider].tiers[state.tier].label;
+
+  // Chart
+  renderChart(monthly);
+
+  // Breakdown table
+  renderBreakdown(depts);
+
+  // Cost categories
+  renderCostCategories(total3yr);
+}
+
+function renderChart(monthly) {
+  const container = document.getElementById('chart-bars');
+  const maxVal = Math.max(...monthly, 1);
+
+  const yLabels = document.getElementById('chart-y-labels');
+  yLabels.innerHTML = '';
+  for (let i = 4; i >= 0; i--) {
+    const span = document.createElement('span');
+    span.textContent = fmtCurrency(maxVal * i / 4);
+    yLabels.appendChild(span);
+  }
+
+  container.innerHTML = '';
+  const barHeight = 190;
+  const monthNames = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+  const yearColors = ['#60a5fa', '#fb923c', '#34d399'];
+
+  monthly.forEach((val, i) => {
+    const grp = document.createElement('div');
+    grp.className = 'chart-month-group';
+    const h = (val / maxVal) * barHeight;
+    const yearIdx = Math.floor(i / 12);
+    const bar = document.createElement('div');
+    bar.className = 'chart-bar';
+    bar.style.height = h + 'px';
+    bar.style.background = yearColors[yearIdx];
+    bar.setAttribute('data-tooltip', fmtCurrencyFull(val));
+    grp.appendChild(bar);
+
+    if (i % 3 === 0) {
+      const lbl = document.createElement('div');
+      lbl.className = 'chart-label';
+      lbl.textContent = monthNames[i % 12];
+      grp.appendChild(lbl);
+    }
+    container.appendChild(grp);
+  });
+}
+
+function renderBreakdown(depts) {
+  const tbody = document.querySelector('#breakdown-table tbody');
+  tbody.innerHTML = '';
+  depts.sort((a, b) => b.years[0] - a.years[0]).forEach(d => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="dept-color" style="background:${d.color}"></span>${d.name}</td>
+      <td>${d.aiUsers}</td>
+      <td>${fmtCurrencyFull(d.monthlyPerUser)}</td>
+      <td>${fmtCurrency(d.years[0])}</td>
+      <td>${fmtCurrency(d.years[1])}</td>
+      <td>${fmtCurrency(d.years[2])}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  // Total row
+  let t = [0,0,0];
+  depts.forEach(d => { t[0]+=d.years[0]; t[1]+=d.years[1]; t[2]+=d.years[2]; });
+  const totalUsers = depts.reduce((s,d) => s + d.aiUsers, 0);
+  const tr = document.createElement('tr');
+  tr.style.fontWeight = '700';
+  tr.innerHTML = `
+    <td>Total</td>
+    <td>${totalUsers}</td>
+    <td>—</td>
+    <td>${fmtCurrency(t[0])}</td>
+    <td>${fmtCurrency(t[1])}</td>
+    <td>${fmtCurrency(t[2])}</td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function renderCostCategories(total) {
+  const legend = document.getElementById('cost-legend');
+  const bars = document.getElementById('cost-bars');
+  legend.innerHTML = '';
+  bars.innerHTML = '';
+
+  COST_CATEGORIES.forEach(cat => {
+    // Legend
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `<span class="legend-dot" style="background:${cat.color}"></span>${cat.name} (${Math.round(cat.pct*100)}%)`;
+    legend.appendChild(item);
+  });
+
+  // Stacked bar
+  const barContainer = document.createElement('div');
+  barContainer.style.cssText = 'display:flex;height:32px;border-radius:6px;overflow:hidden;';
+  COST_CATEGORIES.forEach(cat => {
+    const seg = document.createElement('div');
+    seg.style.cssText = `width:${cat.pct*100}%;background:${cat.color};display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:600;color:white;`;
+    if (cat.pct >= 0.1) seg.textContent = fmtCurrency(total * cat.pct);
+    seg.title = `${cat.name}: ${fmtCurrencyFull(total * cat.pct)}`;
+    barContainer.appendChild(seg);
+  });
+  bars.appendChild(barContainer);
+}
+
+// ─── Init ───
+initDepartments();
+initProviders();
+initSliders();
+recalc();
+</script>
+</body>
+</html>
