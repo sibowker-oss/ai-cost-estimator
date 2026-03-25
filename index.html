@@ -388,6 +388,150 @@
     margin-top: 0.75rem;
   }
   .assumptions strong { color: var(--text); font-weight: 500; }
+
+  /* Agent section */
+  .agent-type-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.6rem;
+    align-items: center;
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 0.55rem 0.75rem;
+  }
+  .agent-type-item .agent-info {
+    display: flex;
+    flex-direction: column;
+  }
+  .agent-type-item .agent-name { font-size: 0.82rem; font-weight: 500; }
+  .agent-type-item .agent-desc { font-size: 0.65rem; color: var(--muted); line-height: 1.3; }
+  .agent-count-ctrl {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .agent-count-ctrl button {
+    width: 22px; height: 22px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 0.85rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .agent-count-ctrl button:hover { border-color: var(--accent); }
+  .agent-count-ctrl .agent-count-val {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--accent2);
+    min-width: 20px;
+    text-align: center;
+  }
+
+  /* Stacked chart bars */
+  .chart-bar-stack {
+    width: 70%;
+    max-width: 28px;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: stretch;
+    cursor: pointer;
+    position: relative;
+  }
+  .chart-bar-stack:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    z-index: 10;
+  }
+  .chart-bar-segment {
+    min-height: 0;
+    transition: height 0.4s ease;
+  }
+  .chart-bar-segment:last-child {
+    border-radius: 3px 3px 0 0;
+  }
+  .chart-bar-segment:first-child {
+    border-radius: 0;
+  }
+  .chart-bar-stack .chart-bar-segment:only-child {
+    border-radius: 3px 3px 0 0;
+  }
+
+  /* Maturity badges */
+  .maturity-stages {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+  }
+  .maturity-badge {
+    flex: 1;
+    padding: 0.45rem 0.5rem;
+    border-radius: 6px;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .maturity-badge:hover { border-color: var(--muted); }
+  .maturity-badge.active {
+    border-color: #f59e0b;
+    background: rgba(245,158,11,0.1);
+    color: #fbbf24;
+  }
+  .maturity-badge .maturity-year {
+    display: block;
+    font-size: 0.6rem;
+    font-weight: 400;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  .agent-summary {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.6rem 0.75rem;
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.2);
+    border-radius: 8px;
+    margin-top: 0.75rem;
+  }
+  .agent-summary .agent-summary-label { font-size: 0.78rem; color: var(--muted); }
+  .agent-summary .agent-summary-value { font-size: 0.78rem; font-weight: 700; color: #fbbf24; }
+
+  /* Spend split indicator */
+  .spend-split {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.35rem;
+  }
+  .spend-split-item {
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+  .spend-split-item .split-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
 </style>
 </head>
 <body>
@@ -469,6 +613,47 @@
         <h2>Departments Using AI</h2>
         <div class="dept-list" id="dept-list"></div>
       </div>
+
+      <div class="panel" style="border-color: rgba(245,158,11,0.3);">
+        <h2 style="color: #fbbf24;">AI Agents</h2>
+        <div class="maturity-stages" id="maturity-stages">
+          <div class="maturity-badge active" data-maturity="pilot">
+            Pilot
+            <span class="maturity-year">Yr 1 typical</span>
+          </div>
+          <div class="maturity-badge" data-maturity="scaling">
+            Scaling
+            <span class="maturity-year">Yr 2 typical</span>
+          </div>
+          <div class="maturity-badge" data-maturity="pervasive">
+            Pervasive
+            <span class="maturity-year">Yr 3 typical</span>
+          </div>
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span>Daily Invocations per Agent</span>
+            <span class="control-value" id="val-agent-invocations">100</span>
+          </div>
+          <input type="range" id="slider-agent-invocations" min="10" max="10000" value="100" step="10">
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span>Agent Growth Rate (YoY)</span>
+            <span class="control-value" id="val-agent-growth">75%</span>
+          </div>
+          <input type="range" id="slider-agent-growth" min="0" max="200" value="75">
+        </div>
+        <div class="dept-list" id="agent-type-list" style="margin-top:0.75rem;"></div>
+        <div class="agent-summary">
+          <span class="agent-summary-label">Total agents (Year 1)</span>
+          <span class="agent-summary-value" id="agent-total-count">0 agents</span>
+        </div>
+        <div class="agent-summary" style="margin-top:0.35rem;">
+          <span class="agent-summary-label">Agent spend (Year 1)</span>
+          <span class="agent-summary-value" id="agent-total-cost">$0</span>
+        </div>
+      </div>
     </div>
 
     <!-- RIGHT PANEL: Results -->
@@ -478,21 +663,25 @@
           <div class="label">Year 1</div>
           <div class="amount" id="total-yr1">$0</div>
           <div class="sub" id="monthly-yr1">$0/mo</div>
+          <div class="spend-split" id="split-yr1"></div>
         </div>
         <div class="total-card yr2">
           <div class="label">Year 2</div>
           <div class="amount" id="total-yr2">$0</div>
           <div class="sub" id="monthly-yr2">$0/mo</div>
+          <div class="spend-split" id="split-yr2"></div>
         </div>
         <div class="total-card yr3">
           <div class="label">Year 3</div>
           <div class="amount" id="total-yr3">$0</div>
           <div class="sub" id="monthly-yr3">$0/mo</div>
+          <div class="spend-split" id="split-yr3"></div>
         </div>
         <div class="total-card total">
           <div class="label">3-Year Total</div>
           <div class="amount" id="total-all">$0</div>
           <div class="sub" id="per-employee">$0/employee</div>
+          <div class="spend-split" id="split-total"></div>
         </div>
       </div>
 
@@ -512,6 +701,23 @@
               <th>Department</th>
               <th>AI Users</th>
               <th>Avg $/User/Mo</th>
+              <th>Year 1</th>
+              <th>Year 2</th>
+              <th>Year 3</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h2 style="color: #fbbf24;">Agent Spend Breakdown</h2>
+        <table class="breakdown-table" id="agent-breakdown-table">
+          <thead>
+            <tr>
+              <th>Agent Type</th>
+              <th>Count (Yr 1)</th>
+              <th>$/Agent/Mo</th>
               <th>Year 1</th>
               <th>Year 2</th>
               <th>Year 3</th>
@@ -557,8 +763,6 @@ const DEPARTMENTS = [
   { id: 'data',         name: 'Data & Analytics',  pctOfCompany: 0.07, aiIntensity: 1.7,  color: '#c084fc', defaultOn: true },
 ];
 
-// Monthly cost per AI user by provider and tier
-// Tiers: 1=seats/chat, 2=API, 3=enterprise API + platform
 const PROVIDERS = {
   openai: {
     name: 'OpenAI',
@@ -605,7 +809,23 @@ const PROVIDERS = {
 const INTENSITY_LABELS = ['', 'Light', 'Low', 'Medium', 'High', 'Heavy'];
 const INTENSITY_MULT = [0, 0.4, 0.7, 1.0, 1.5, 2.2];
 
-// Cost categories as % of total
+// Agent types with cost multipliers relative to a single copilot user
+// costMult = how many times more expensive per invocation vs a chat message
+// avgTokensPerInvocation approximated into cost relative to provider base
+const AGENT_TYPES = [
+  { id: 'simple',   name: 'Simple Automation',  desc: 'Email triage, scheduling, data entry',                    costMult: 1,   color: '#fbbf24', defaultCount: 2 },
+  { id: 'workflow', name: 'Workflow Agents',     desc: 'Onboarding, report gen, code review',                    costMult: 5,   color: '#f59e0b', defaultCount: 1 },
+  { id: 'research', name: 'Research & Analysis', desc: 'Market research, compliance, deep analysis',             costMult: 15,  color: '#d97706', defaultCount: 0 },
+  { id: 'multi',    name: 'Multi-Agent Systems', desc: 'Orchestrated pipelines, agent-to-agent delegation',      costMult: 40,  color: '#b45309', defaultCount: 0 },
+];
+
+// Maturity presets define default agent counts for each stage
+const MATURITY_PRESETS = {
+  pilot:     { simple: 2, workflow: 1, research: 0, multi: 0 },
+  scaling:   { simple: 8, workflow: 5, research: 2, multi: 1 },
+  pervasive: { simple: 20, workflow: 15, research: 8, multi: 4 },
+};
+
 const COST_CATEGORIES = [
   { name: 'API / Inference', pct: 0.55, color: '#6366f1' },
   { name: 'Platform & Tooling', pct: 0.18, color: '#60a5fa' },
@@ -623,6 +843,11 @@ let state = {
   provider: 'openai',
   tier: 2,
   departments: {},
+  // Agent state
+  agentMaturity: 'pilot',
+  agentInvocations: 100,
+  agentGrowth: 75,
+  agentCounts: { simple: 2, workflow: 1, research: 0, multi: 0 },
 };
 DEPARTMENTS.forEach(d => state.departments[d.id] = d.defaultOn);
 
@@ -687,6 +912,74 @@ function initSliders() {
   });
 }
 
+function initAgents() {
+  // Maturity badges
+  document.getElementById('maturity-stages').addEventListener('click', e => {
+    const badge = e.target.closest('.maturity-badge');
+    if (!badge) return;
+    document.querySelectorAll('.maturity-badge').forEach(b => b.classList.remove('active'));
+    badge.classList.add('active');
+    state.agentMaturity = badge.dataset.maturity;
+    // Apply preset counts
+    const preset = MATURITY_PRESETS[state.agentMaturity];
+    state.agentCounts = { ...preset };
+    updateAgentCountDisplay();
+    recalc();
+  });
+
+  // Agent invocations slider
+  const invSlider = document.getElementById('slider-agent-invocations');
+  invSlider.addEventListener('input', () => {
+    state.agentInvocations = Number(invSlider.value);
+    document.getElementById('val-agent-invocations').textContent = state.agentInvocations.toLocaleString();
+    recalc();
+  });
+
+  // Agent growth slider
+  const growthSlider = document.getElementById('slider-agent-growth');
+  growthSlider.addEventListener('input', () => {
+    state.agentGrowth = Number(growthSlider.value);
+    document.getElementById('val-agent-growth').textContent = state.agentGrowth + '%';
+    recalc();
+  });
+
+  // Agent type list with +/- controls
+  const list = document.getElementById('agent-type-list');
+  AGENT_TYPES.forEach(at => {
+    const item = document.createElement('div');
+    item.className = 'agent-type-item';
+    item.innerHTML = `
+      <div class="agent-count-ctrl">
+        <button data-agent="${at.id}" data-dir="-1">-</button>
+        <span class="agent-count-val" id="agent-count-${at.id}">${state.agentCounts[at.id]}</span>
+        <button data-agent="${at.id}" data-dir="1">+</button>
+      </div>
+      <div class="agent-info">
+        <span class="agent-name" style="color:${at.color}">${at.name}</span>
+        <span class="agent-desc">${at.desc}</span>
+      </div>
+      <span class="dept-users" style="color:${at.color}" id="agent-cost-hint-${at.id}">${at.costMult}x</span>
+    `;
+    list.appendChild(item);
+  });
+  list.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-agent]');
+    if (!btn) return;
+    const id = btn.dataset.agent;
+    const dir = Number(btn.dataset.dir);
+    state.agentCounts[id] = Math.max(0, state.agentCounts[id] + dir);
+    document.getElementById(`agent-count-${id}`).textContent = state.agentCounts[id];
+    recalc();
+  });
+}
+
+function updateAgentCountDisplay() {
+  AGENT_TYPES.forEach(at => {
+    const el = document.getElementById(`agent-count-${at.id}`);
+    if (el) el.textContent = state.agentCounts[at.id];
+  });
+}
+
 // ─── Calculation Engine ───
 function calcDeptCosts() {
   const baseCost = PROVIDERS[state.provider].tiers[state.tier].base;
@@ -705,7 +998,7 @@ function calcDeptCosts() {
     for (let yr = 0; yr < 3; yr++) {
       const scale = Math.pow(1 + growthRate, yr);
       const usersThisYear = Math.round(aiUsers * Math.min(scale, deptSize / aiUsers));
-      const costPerUser = monthlyPerUser * Math.pow(1 + growthRate * 0.3, yr); // cost grows slower than adoption
+      const costPerUser = monthlyPerUser * Math.pow(1 + growthRate * 0.3, yr);
       years[yr] = usersThisYear * costPerUser * 12;
     }
     results.push({
@@ -719,31 +1012,67 @@ function calcDeptCosts() {
   return results;
 }
 
+function calcAgentCosts() {
+  const baseCost = PROVIDERS[state.provider].tiers[state.tier].base;
+  const agentGrowthRate = state.agentGrowth / 100;
+  // Cost per invocation: base provider cost scaled down to per-invocation
+  // Assume ~500 chat messages/month = 1 user's base cost
+  // So cost per invocation ≈ baseCost / 500
+  const costPerInvocation = baseCost / 500;
+
+  const results = [];
+  AGENT_TYPES.forEach(at => {
+    const count = state.agentCounts[at.id];
+    if (count === 0) return;
+
+    const monthlyPerAgent = costPerInvocation * at.costMult * state.agentInvocations * 30;
+    const years = [0, 0, 0];
+    for (let yr = 0; yr < 3; yr++) {
+      const countThisYear = Math.round(count * Math.pow(1 + agentGrowthRate, yr));
+      const costScale = Math.pow(0.92, yr); // slight efficiency gains over time (model costs drop)
+      years[yr] = countThisYear * monthlyPerAgent * costScale * 12;
+    }
+    results.push({
+      ...at,
+      count,
+      monthlyPerAgent,
+      years,
+    });
+  });
+  return results;
+}
+
 function getMonthlyProjection() {
   const depts = calcDeptCosts();
-  const months = [];
+  const agents = calcAgentCosts();
   const growthRate = state.growth / 100;
+  const agentGrowthRate = state.agentGrowth / 100;
+  const copilotMonths = [];
+  const agentMonths = [];
 
   for (let m = 0; m < 36; m++) {
-    const yr = m / 12;
-    let total = 0;
-    depts.forEach(d => {
-      const annualBase = d.years[0] / 12;
-      const scale = Math.pow(1 + growthRate, yr);
-      total += annualBase * Math.min(scale, d.deptSize * PROVIDERS[state.provider].tiers[state.tier].base * INTENSITY_MULT[state.intensity] * d.aiIntensity / (d.years[0] / 12 || 1));
-    });
-    // Simpler: interpolate between year starts
     const yearIdx = Math.floor(m / 12);
     const monthInYear = m % 12;
-    let monthTotal = 0;
+
+    // Copilot spend
+    let copilotTotal = 0;
     depts.forEach(d => {
       const startMonthly = d.years[yearIdx] / 12;
       const nextYearMonthly = yearIdx < 2 ? d.years[yearIdx + 1] / 12 : startMonthly * (1 + growthRate * 0.5);
-      monthTotal += startMonthly + (nextYearMonthly - startMonthly) * (monthInYear / 12);
+      copilotTotal += startMonthly + (nextYearMonthly - startMonthly) * (monthInYear / 12);
     });
-    months.push(monthTotal);
+    copilotMonths.push(copilotTotal);
+
+    // Agent spend
+    let agentTotal = 0;
+    agents.forEach(a => {
+      const startMonthly = a.years[yearIdx] / 12;
+      const nextYearMonthly = yearIdx < 2 ? a.years[yearIdx + 1] / 12 : startMonthly * (1 + agentGrowthRate * 0.5);
+      agentTotal += startMonthly + (nextYearMonthly - startMonthly) * (monthInYear / 12);
+    });
+    agentMonths.push(agentTotal);
   }
-  return months;
+  return { copilotMonths, agentMonths };
 }
 
 // ─── Formatting ───
@@ -756,10 +1085,26 @@ function fmtCurrencyFull(n) {
   return '$' + Math.round(n).toLocaleString();
 }
 
+function renderSpendSplit(elId, copilot, agent) {
+  const el = document.getElementById(elId);
+  if (agent === 0) {
+    el.innerHTML = '';
+    return;
+  }
+  const total = copilot + agent;
+  const copPct = Math.round((copilot / total) * 100);
+  const agPct = 100 - copPct;
+  el.innerHTML = `
+    <span class="spend-split-item"><span class="split-dot" style="background:#818cf8"></span>Copilot ${copPct}%</span>
+    <span class="spend-split-item"><span class="split-dot" style="background:#f59e0b"></span>Agents ${agPct}%</span>
+  `;
+}
+
 // ─── Render ───
 function recalc() {
   const depts = calcDeptCosts();
-  const monthly = getMonthlyProjection();
+  const agents = calcAgentCosts();
+  const { copilotMonths, agentMonths } = getMonthlyProjection();
 
   // Update dept user counts
   DEPARTMENTS.forEach(dept => {
@@ -772,9 +1117,16 @@ function recalc() {
     el.textContent = d ? `~${d.aiUsers} users` : '0 users';
   });
 
-  // Totals
-  let yr = [0, 0, 0];
-  depts.forEach(d => { yr[0] += d.years[0]; yr[1] += d.years[1]; yr[2] += d.years[2]; });
+  // Copilot totals
+  let copYr = [0, 0, 0];
+  depts.forEach(d => { copYr[0] += d.years[0]; copYr[1] += d.years[1]; copYr[2] += d.years[2]; });
+
+  // Agent totals
+  let agYr = [0, 0, 0];
+  agents.forEach(a => { agYr[0] += a.years[0]; agYr[1] += a.years[1]; agYr[2] += a.years[2]; });
+
+  // Combined totals
+  const yr = [copYr[0] + agYr[0], copYr[1] + agYr[1], copYr[2] + agYr[2]];
   const total3yr = yr[0] + yr[1] + yr[2];
 
   document.getElementById('total-yr1').textContent = fmtCurrency(yr[0]);
@@ -786,22 +1138,35 @@ function recalc() {
   document.getElementById('monthly-yr3').textContent = fmtCurrency(yr[2] / 12) + '/mo';
   document.getElementById('per-employee').textContent = fmtCurrency(total3yr / state.employees) + '/employee';
 
+  // Spend splits
+  renderSpendSplit('split-yr1', copYr[0], agYr[0]);
+  renderSpendSplit('split-yr2', copYr[1], agYr[1]);
+  renderSpendSplit('split-yr3', copYr[2], agYr[2]);
+  renderSpendSplit('split-total', copYr[0]+copYr[1]+copYr[2], agYr[0]+agYr[1]+agYr[2]);
+
   // Tier label
   document.getElementById('val-tier').textContent = PROVIDERS[state.provider].tiers[state.tier].label;
 
-  // Chart
-  renderChart(monthly);
+  // Agent summary in left panel
+  const totalAgentCount = Object.values(state.agentCounts).reduce((s, c) => s + c, 0);
+  document.getElementById('agent-total-count').textContent = totalAgentCount + ' agent' + (totalAgentCount !== 1 ? 's' : '');
+  document.getElementById('agent-total-cost').textContent = fmtCurrency(agYr[0]);
 
-  // Breakdown table
+  // Chart
+  renderChart(copilotMonths, agentMonths);
+
+  // Breakdown tables
   renderBreakdown(depts);
+  renderAgentBreakdown(agents);
 
   // Cost categories
   renderCostCategories(total3yr);
 }
 
-function renderChart(monthly) {
+function renderChart(copilotMonths, agentMonths) {
   const container = document.getElementById('chart-bars');
-  const maxVal = Math.max(...monthly, 1);
+  const combined = copilotMonths.map((c, i) => c + agentMonths[i]);
+  const maxVal = Math.max(...combined, 1);
 
   const yLabels = document.getElementById('chart-y-labels');
   yLabels.innerHTML = '';
@@ -815,18 +1180,37 @@ function renderChart(monthly) {
   const barHeight = 190;
   const monthNames = ['J','F','M','A','M','J','J','A','S','O','N','D'];
   const yearColors = ['#60a5fa', '#fb923c', '#34d399'];
+  const agentColor = '#f59e0b';
 
-  monthly.forEach((val, i) => {
+  for (let i = 0; i < 36; i++) {
     const grp = document.createElement('div');
     grp.className = 'chart-month-group';
-    const h = (val / maxVal) * barHeight;
     const yearIdx = Math.floor(i / 12);
-    const bar = document.createElement('div');
-    bar.className = 'chart-bar';
-    bar.style.height = h + 'px';
-    bar.style.background = yearColors[yearIdx];
-    bar.setAttribute('data-tooltip', fmtCurrencyFull(val));
-    grp.appendChild(bar);
+    const copilotH = (copilotMonths[i] / maxVal) * barHeight;
+    const agentH = (agentMonths[i] / maxVal) * barHeight;
+    const totalVal = copilotMonths[i] + agentMonths[i];
+
+    const stack = document.createElement('div');
+    stack.className = 'chart-bar-stack';
+    stack.setAttribute('data-tooltip', `${fmtCurrencyFull(totalVal)} (Copilot: ${fmtCurrencyFull(copilotMonths[i])}, Agents: ${fmtCurrencyFull(agentMonths[i])})`);
+
+    // Copilot segment (bottom)
+    const copSeg = document.createElement('div');
+    copSeg.className = 'chart-bar-segment';
+    copSeg.style.height = Math.max(copilotH, totalVal > 0 ? 1 : 0) + 'px';
+    copSeg.style.background = yearColors[yearIdx];
+    stack.appendChild(copSeg);
+
+    // Agent segment (top) — only if there are agents
+    if (agentMonths[i] > 0) {
+      const agSeg = document.createElement('div');
+      agSeg.className = 'chart-bar-segment';
+      agSeg.style.height = Math.max(agentH, 1) + 'px';
+      agSeg.style.background = agentColor;
+      stack.appendChild(agSeg);
+    }
+
+    grp.appendChild(stack);
 
     if (i % 3 === 0) {
       const lbl = document.createElement('div');
@@ -835,7 +1219,7 @@ function renderChart(monthly) {
       grp.appendChild(lbl);
     }
     container.appendChild(grp);
-  });
+  }
 }
 
 function renderBreakdown(depts) {
@@ -853,15 +1237,52 @@ function renderBreakdown(depts) {
     `;
     tbody.appendChild(tr);
   });
-  // Total row
   let t = [0,0,0];
   depts.forEach(d => { t[0]+=d.years[0]; t[1]+=d.years[1]; t[2]+=d.years[2]; });
   const totalUsers = depts.reduce((s,d) => s + d.aiUsers, 0);
   const tr = document.createElement('tr');
   tr.style.fontWeight = '700';
   tr.innerHTML = `
-    <td>Total</td>
+    <td>Total Copilot</td>
     <td>${totalUsers}</td>
+    <td>—</td>
+    <td>${fmtCurrency(t[0])}</td>
+    <td>${fmtCurrency(t[1])}</td>
+    <td>${fmtCurrency(t[2])}</td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function renderAgentBreakdown(agents) {
+  const tbody = document.querySelector('#agent-breakdown-table tbody');
+  tbody.innerHTML = '';
+  if (agents.length === 0) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="6" style="color:var(--muted);text-align:center;font-size:0.82rem;">No agents configured — add agents in the left panel</td>';
+    tbody.appendChild(tr);
+    return;
+  }
+  const agentGrowthRate = state.agentGrowth / 100;
+  agents.sort((a, b) => b.years[0] - a.years[0]).forEach(a => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="dept-color" style="background:${a.color}"></span>${a.name} <span style="font-size:0.68rem;color:var(--muted)">(${a.costMult}x)</span></td>
+      <td>${a.count}</td>
+      <td>${fmtCurrencyFull(a.monthlyPerAgent)}</td>
+      <td>${fmtCurrency(a.years[0])}</td>
+      <td>${fmtCurrency(a.years[1])}</td>
+      <td>${fmtCurrency(a.years[2])}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  let t = [0,0,0];
+  agents.forEach(a => { t[0]+=a.years[0]; t[1]+=a.years[1]; t[2]+=a.years[2]; });
+  const totalCount = agents.reduce((s,a) => s + a.count, 0);
+  const tr = document.createElement('tr');
+  tr.style.fontWeight = '700';
+  tr.innerHTML = `
+    <td>Total Agents</td>
+    <td>${totalCount}</td>
     <td>—</td>
     <td>${fmtCurrency(t[0])}</td>
     <td>${fmtCurrency(t[1])}</td>
@@ -877,14 +1298,12 @@ function renderCostCategories(total) {
   bars.innerHTML = '';
 
   COST_CATEGORIES.forEach(cat => {
-    // Legend
     const item = document.createElement('div');
     item.className = 'legend-item';
     item.innerHTML = `<span class="legend-dot" style="background:${cat.color}"></span>${cat.name} (${Math.round(cat.pct*100)}%)`;
     legend.appendChild(item);
   });
 
-  // Stacked bar
   const barContainer = document.createElement('div');
   barContainer.style.cssText = 'display:flex;height:32px;border-radius:6px;overflow:hidden;';
   COST_CATEGORIES.forEach(cat => {
@@ -901,6 +1320,7 @@ function renderCostCategories(total) {
 initDepartments();
 initProviders();
 initSliders();
+initAgents();
 recalc();
 </script>
 </body>
