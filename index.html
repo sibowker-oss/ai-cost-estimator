@@ -14,7 +14,7 @@
     --accent: #6366f1;
     --accent2: #818cf8;
     --green: #34d399;
-    --orange: #fb923c;
+    --orange: #e879f9;
     --red: #f87171;
     --blue: #60a5fa;
   }
@@ -615,43 +615,54 @@
       </div>
 
       <div class="panel" style="border-color: rgba(245,158,11,0.3);">
-        <h2 style="color: #fbbf24;">AI Agents</h2>
+        <h2 style="color: #fbbf24;">AI Agents — Year 1 Starting Point</h2>
+        <p style="font-size:0.75rem;color:var(--muted);margin:-0.75rem 0 1rem 0;line-height:1.4;">
+          Set your Year 1 agent counts below. The growth rate compounds these across Years 2 &amp; 3 automatically.
+        </p>
         <div class="maturity-stages" id="maturity-stages">
-          <div class="maturity-badge active" data-maturity="pilot">
-            Pilot
-            <span class="maturity-year">Yr 1 typical</span>
+          <div class="maturity-badge active" data-maturity="conservative">
+            Conservative
+            <span class="maturity-year">3 agents</span>
           </div>
-          <div class="maturity-badge" data-maturity="scaling">
-            Scaling
-            <span class="maturity-year">Yr 2 typical</span>
+          <div class="maturity-badge" data-maturity="moderate">
+            Moderate
+            <span class="maturity-year">10 agents</span>
           </div>
-          <div class="maturity-badge" data-maturity="pervasive">
-            Pervasive
-            <span class="maturity-year">Yr 3 typical</span>
+          <div class="maturity-badge" data-maturity="aggressive">
+            Aggressive
+            <span class="maturity-year">25 agents</span>
           </div>
         </div>
-        <div class="control-group">
-          <div class="control-label">
-            <span>Daily Invocations per Agent</span>
-            <span class="control-value" id="val-agent-invocations">100</span>
+        <div class="dept-list" id="agent-type-list"></div>
+        <div style="margin-top:1rem;">
+          <div class="control-group">
+            <div class="control-label">
+              <span>Daily Invocations per Agent</span>
+              <span class="control-value" id="val-agent-invocations">100</span>
+            </div>
+            <input type="range" id="slider-agent-invocations" min="10" max="10000" value="100" step="10">
           </div>
-          <input type="range" id="slider-agent-invocations" min="10" max="10000" value="100" step="10">
-        </div>
-        <div class="control-group">
-          <div class="control-label">
-            <span>Agent Growth Rate (YoY)</span>
-            <span class="control-value" id="val-agent-growth">75%</span>
+          <div class="control-group">
+            <div class="control-label">
+              <span>Agent Growth Rate (YoY)</span>
+              <span class="control-value" id="val-agent-growth">75%</span>
+            </div>
+            <input type="range" id="slider-agent-growth" min="0" max="200" value="75">
           </div>
-          <input type="range" id="slider-agent-growth" min="0" max="200" value="75">
         </div>
-        <div class="dept-list" id="agent-type-list" style="margin-top:0.75rem;"></div>
-        <div class="agent-summary">
-          <span class="agent-summary-label">Total agents (Year 1)</span>
-          <span class="agent-summary-value" id="agent-total-count">0 agents</span>
-        </div>
-        <div class="agent-summary" style="margin-top:0.35rem;">
-          <span class="agent-summary-label">Agent spend (Year 1)</span>
-          <span class="agent-summary-value" id="agent-total-cost">$0</span>
+        <div style="margin-top:0.75rem;display:flex;flex-direction:column;gap:0.35rem;">
+          <div class="agent-summary">
+            <span class="agent-summary-label">Year 1</span>
+            <span class="agent-summary-value" id="agent-yr1-summary">0 agents — $0</span>
+          </div>
+          <div class="agent-summary" style="background:rgba(245,158,11,0.12);">
+            <span class="agent-summary-label">Year 2 (projected)</span>
+            <span class="agent-summary-value" id="agent-yr2-summary">0 agents — $0</span>
+          </div>
+          <div class="agent-summary" style="background:rgba(245,158,11,0.18);">
+            <span class="agent-summary-label">Year 3 (projected)</span>
+            <span class="agent-summary-value" id="agent-yr3-summary">0 agents — $0</span>
+          </div>
         </div>
       </div>
     </div>
@@ -819,11 +830,12 @@ const AGENT_TYPES = [
   { id: 'multi',    name: 'Multi-Agent Systems', desc: 'Orchestrated pipelines, agent-to-agent delegation',      costMult: 40,  color: '#b45309', defaultCount: 0 },
 ];
 
-// Maturity presets define default agent counts for each stage
+// Starting profile presets — these set Year 1 agent counts
+// Growth rate then compounds these into Year 2 and Year 3
 const MATURITY_PRESETS = {
-  pilot:     { simple: 2, workflow: 1, research: 0, multi: 0 },
-  scaling:   { simple: 8, workflow: 5, research: 2, multi: 1 },
-  pervasive: { simple: 20, workflow: 15, research: 8, multi: 4 },
+  conservative: { simple: 2, workflow: 1, research: 0, multi: 0 },
+  moderate:     { simple: 5, workflow: 3, research: 1, multi: 1 },
+  aggressive:   { simple: 10, workflow: 8, research: 4, multi: 3 },
 };
 
 const COST_CATEGORIES = [
@@ -844,7 +856,7 @@ let state = {
   tier: 2,
   departments: {},
   // Agent state
-  agentMaturity: 'pilot',
+  agentMaturity: 'conservative',
   agentInvocations: 100,
   agentGrowth: 75,
   agentCounts: { simple: 2, workflow: 1, research: 0, multi: 0 },
@@ -1095,8 +1107,8 @@ function renderSpendSplit(elId, copilot, agent) {
   const copPct = Math.round((copilot / total) * 100);
   const agPct = 100 - copPct;
   el.innerHTML = `
-    <span class="spend-split-item"><span class="split-dot" style="background:#818cf8"></span>Copilot ${copPct}%</span>
-    <span class="spend-split-item"><span class="split-dot" style="background:#f59e0b"></span>Agents ${agPct}%</span>
+    <span class="spend-split-item"><span class="split-dot" style="background:#818cf8"></span>Team Users ${copPct}%</span>
+    <span class="spend-split-item"><span class="split-dot" style="background:#f59e0b"></span>AI Agents ${agPct}%</span>
   `;
 }
 
@@ -1147,10 +1159,14 @@ function recalc() {
   // Tier label
   document.getElementById('val-tier').textContent = PROVIDERS[state.provider].tiers[state.tier].label;
 
-  // Agent summary in left panel
-  const totalAgentCount = Object.values(state.agentCounts).reduce((s, c) => s + c, 0);
-  document.getElementById('agent-total-count').textContent = totalAgentCount + ' agent' + (totalAgentCount !== 1 ? 's' : '');
-  document.getElementById('agent-total-cost').textContent = fmtCurrency(agYr[0]);
+  // Agent summary in left panel — show 3-year trajectory
+  const agentGrowthRate = state.agentGrowth / 100;
+  const yr1AgentCount = Object.values(state.agentCounts).reduce((s, c) => s + c, 0);
+  const yr2AgentCount = Math.round(yr1AgentCount * (1 + agentGrowthRate));
+  const yr3AgentCount = Math.round(yr1AgentCount * Math.pow(1 + agentGrowthRate, 2));
+  document.getElementById('agent-yr1-summary').textContent = `${yr1AgentCount} agents — ${fmtCurrency(agYr[0])}`;
+  document.getElementById('agent-yr2-summary').textContent = `${yr2AgentCount} agents — ${fmtCurrency(agYr[1])}`;
+  document.getElementById('agent-yr3-summary').textContent = `${yr3AgentCount} agents — ${fmtCurrency(agYr[2])}`;
 
   // Chart
   renderChart(copilotMonths, agentMonths);
@@ -1179,7 +1195,7 @@ function renderChart(copilotMonths, agentMonths) {
   container.innerHTML = '';
   const barHeight = 190;
   const monthNames = ['J','F','M','A','M','J','J','A','S','O','N','D'];
-  const yearColors = ['#60a5fa', '#fb923c', '#34d399'];
+  const yearColors = ['#60a5fa', '#e879f9', '#34d399'];
   const agentColor = '#f59e0b';
 
   for (let i = 0; i < 36; i++) {
@@ -1192,7 +1208,7 @@ function renderChart(copilotMonths, agentMonths) {
 
     const stack = document.createElement('div');
     stack.className = 'chart-bar-stack';
-    stack.setAttribute('data-tooltip', `${fmtCurrencyFull(totalVal)} (Copilot: ${fmtCurrencyFull(copilotMonths[i])}, Agents: ${fmtCurrencyFull(agentMonths[i])})`);
+    stack.setAttribute('data-tooltip', `${fmtCurrencyFull(totalVal)} (Team Users: ${fmtCurrencyFull(copilotMonths[i])}, AI Agents: ${fmtCurrencyFull(agentMonths[i])})`);
 
     // Copilot segment (bottom)
     const copSeg = document.createElement('div');
@@ -1243,7 +1259,7 @@ function renderBreakdown(depts) {
   const tr = document.createElement('tr');
   tr.style.fontWeight = '700';
   tr.innerHTML = `
-    <td>Total Copilot</td>
+    <td>Total Team Users</td>
     <td>${totalUsers}</td>
     <td>—</td>
     <td>${fmtCurrency(t[0])}</td>
