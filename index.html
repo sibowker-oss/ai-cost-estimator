@@ -782,17 +782,24 @@
         <h2>Cost Breakdown</h2>
         <div class="legend" id="cost-legend"></div>
         <div id="cost-bars" style="margin-top:1rem;"></div>
-        <div class="assumptions" style="margin-top:1.25rem;">
-          <strong>Assumptions & methodology:</strong><br>
-          Estimates based on published API pricing and typical per-seat enterprise rates as of early 2025.
-          API costs assume average tokens per request scaled by usage intensity.
-          Self-hosted (Meta) includes estimated GPU compute costs via cloud providers.
-          Year-over-year growth compounds adoption rate and usage intensity.
-          <strong>Microsoft Sovereign Cloud</strong> pricing reflects the ~40-60% premium typical of Azure Government and
-          Microsoft Cloud for Sovereignty regions due to dedicated infrastructure, data residency guarantees,
-          FedRAMP/IL5 compliance, restricted personnel clearances, and isolated network fabric.
-          Enterprise tier includes Azure Confidential Computing, managed HSM, and sovereignty controls.<br>
-          Actual costs vary significantly based on specific use cases, negotiated contracts, and volume discounts.
+        <div style="margin-top:1.25rem;">
+          <button id="btn-show-methodology" style="
+            width:100%;
+            padding:0.75rem 1rem;
+            background: linear-gradient(135deg, var(--accent), #818cf8);
+            border:none;
+            border-radius:8px;
+            color:white;
+            font-size:0.9rem;
+            font-weight:600;
+            cursor:pointer;
+            transition: opacity 0.2s;
+          " onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+            How did we calculate this?
+          </button>
+          <p style="font-size:0.68rem;color:var(--muted);margin-top:0.5rem;text-align:center;">
+            Opens a detailed breakdown page you can share with stakeholders
+          </p>
         </div>
       </div>
     </div>
@@ -1418,6 +1425,404 @@ function renderCostCategories(total) {
   bars.appendChild(barContainer);
 }
 
+// ─── Methodology Page Generator ───
+function generateMethodologyPage() {
+  const depts = calcDeptCosts();
+  const agents = calcAgentCosts();
+  const provider = PROVIDERS[state.provider];
+  const tier = provider.tiers[state.tier];
+  const intensityMult = INTENSITY_MULT[state.intensity];
+  const industryLabel = document.getElementById('select-industry').selectedOptions[0].text;
+  const agentGrowthRate = state.agentGrowth / 100;
+
+  let copYr = [0,0,0], agYr = [0,0,0];
+  depts.forEach(d => { copYr[0]+=d.years[0]; copYr[1]+=d.years[1]; copYr[2]+=d.years[2]; });
+  agents.forEach(a => { agYr[0]+=a.years[0]; agYr[1]+=a.years[1]; agYr[2]+=a.years[2]; });
+  const yr = [copYr[0]+agYr[0], copYr[1]+agYr[1], copYr[2]+agYr[2]];
+  const total3yr = yr[0]+yr[1]+yr[2];
+
+  // Build department rows
+  let deptRows = depts.sort((a,b) => b.years[0]-a.years[0]).map(d => {
+    const deptSize = Math.round(state.employees * d.pctOfCompany);
+    const aiUsers = d.aiUsers;
+    return `
+      <tr>
+        <td>${d.name}</td>
+        <td>${deptSize}</td>
+        <td>${Math.round(d.pctOfCompany*100)}%</td>
+        <td>${aiUsers}</td>
+        <td>${d.aiIntensity}x</td>
+        <td>$${tier.base} x ${intensityMult} x ${d.aiIntensity} = <strong>${fmtCurrencyFull(d.monthlyPerUser)}</strong></td>
+        <td><strong>${fmtCurrency(d.years[0])}</strong></td>
+      </tr>`;
+  }).join('');
+
+  // Build agent rows
+  let agentRows = '';
+  if (agents.length > 0) {
+    agentRows = agents.sort((a,b) => b.years[0]-a.years[0]).map(a => {
+      const yr2Count = Math.round(a.count * (1 + agentGrowthRate));
+      const yr3Count = Math.round(a.count * Math.pow(1 + agentGrowthRate, 2));
+      return `
+        <tr>
+          <td>${a.name}</td>
+          <td>${a.costMult}x</td>
+          <td>${a.count}</td>
+          <td>${yr2Count}</td>
+          <td>${yr3Count}</td>
+          <td>${fmtCurrencyFull(a.monthlyPerAgent)}/mo</td>
+          <td>${fmtCurrency(a.years[0])}</td>
+          <td>${fmtCurrency(a.years[1])}</td>
+          <td>${fmtCurrency(a.years[2])}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  const totalAgentYr1 = Object.values(state.agentCounts).reduce((s,c) => s+c, 0);
+  const costPerInvocation = tier.base / 500;
+  const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Investment Estimate — Methodology & Calculations</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.7;
+    padding: 2.5rem;
+    max-width: 960px;
+    margin: 0 auto;
+    background: #fff;
+  }
+  @media print {
+    body { padding: 1rem; font-size: 11pt; }
+    .no-print { display: none; }
+  }
+  h1 { font-size: 1.8rem; color: #1a1a2e; margin-bottom: 0.25rem; }
+  .subtitle { color: #666; font-size: 1rem; margin-bottom: 2rem; }
+  h2 { font-size: 1.2rem; color: #4338ca; margin: 2rem 0 0.75rem 0; padding-bottom: 0.4rem; border-bottom: 2px solid #e5e7eb; }
+  h3 { font-size: 1rem; color: #1a1a2e; margin: 1.25rem 0 0.5rem 0; }
+  p { margin-bottom: 0.75rem; color: #374151; }
+  .highlight { background: #f0f4ff; border-left: 4px solid #4338ca; padding: 1rem 1.25rem; border-radius: 0 8px 8px 0; margin: 1rem 0; }
+  .highlight strong { color: #4338ca; }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  .summary-card {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+  }
+  .summary-card .label { font-size: 0.75rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+  .summary-card .value { font-size: 1.5rem; font-weight: 700; color: #4338ca; margin-top: 0.25rem; }
+  .summary-card .sub { font-size: 0.78rem; color: #6b7280; margin-top: 0.2rem; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.85rem; }
+  th { background: #f3f4f6; text-align: left; padding: 0.6rem 0.75rem; font-weight: 600; color: #374151; border-bottom: 2px solid #e5e7eb; }
+  th:not(:first-child) { text-align: right; }
+  td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f3f4f6; }
+  td:not(:first-child) { text-align: right; }
+  .formula {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 0.82rem;
+    color: #4338ca;
+    margin: 0.75rem 0;
+    line-height: 1.8;
+  }
+  .param-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem 2rem;
+    margin: 1rem 0;
+  }
+  .param { display: flex; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid #f3f4f6; }
+  .param .label { color: #6b7280; }
+  .param .val { font-weight: 600; color: #1a1a2e; }
+  .disclaimer {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-top: 2rem;
+    font-size: 0.82rem;
+    color: #92400e;
+  }
+  .btn-print {
+    display: inline-block;
+    padding: 0.6rem 1.5rem;
+    background: #4338ca;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-right: 0.75rem;
+  }
+  .btn-print:hover { background: #3730a3; }
+  .timestamp { font-size: 0.75rem; color: #9ca3af; margin-top: 0.25rem; }
+</style>
+</head>
+<body>
+
+<div class="no-print" style="margin-bottom:1.5rem;">
+  <button class="btn-print" onclick="window.print()">Print / Save as PDF</button>
+  <button class="btn-print" style="background:#059669;" onclick="window.close()">Close</button>
+</div>
+
+<h1>AI Investment Estimate</h1>
+<p class="subtitle">Detailed methodology and calculation breakdown</p>
+<p class="timestamp">Generated on ${today}</p>
+
+<h2>1. Executive Summary</h2>
+
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="label">Year 1</div>
+    <div class="value">${fmtCurrency(yr[0])}</div>
+    <div class="sub">${fmtCurrency(yr[0]/12)}/month</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Year 2</div>
+    <div class="value">${fmtCurrency(yr[1])}</div>
+    <div class="sub">${fmtCurrency(yr[1]/12)}/month</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Year 3</div>
+    <div class="value">${fmtCurrency(yr[2])}</div>
+    <div class="sub">${fmtCurrency(yr[2]/12)}/month</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">3-Year Total</div>
+    <div class="value">${fmtCurrency(total3yr)}</div>
+    <div class="sub">${fmtCurrency(total3yr/state.employees)}/employee</div>
+  </div>
+</div>
+
+<div class="highlight">
+  <strong>This estimate is for a ${state.employees.toLocaleString()}-employee ${industryLabel} company</strong>
+  using <strong>${provider.name}</strong> (${tier.name} tier) with a <strong>${state.adoption}%</strong> AI adoption rate,
+  <strong>${INTENSITY_LABELS[state.intensity].toLowerCase()}</strong> usage intensity, and
+  <strong>${state.growth}%</strong> year-over-year growth in team usage.
+  ${totalAgentYr1 > 0 ? `<br><br>Additionally, <strong>${totalAgentYr1} AI agents</strong> are deployed in Year 1, growing at <strong>${state.agentGrowth}%</strong> per year.` : ''}
+</div>
+
+<h2>2. Input Parameters</h2>
+
+<div class="param-grid">
+  <div class="param"><span class="label">Industry</span><span class="val">${industryLabel}</span></div>
+  <div class="param"><span class="label">Total Employees</span><span class="val">${state.employees.toLocaleString()}</span></div>
+  <div class="param"><span class="label">AI Adoption Rate</span><span class="val">${state.adoption}%</span></div>
+  <div class="param"><span class="label">Usage Intensity</span><span class="val">${INTENSITY_LABELS[state.intensity]} (${intensityMult}x multiplier)</span></div>
+  <div class="param"><span class="label">Team Usage Growth (YoY)</span><span class="val">${state.growth}%</span></div>
+  <div class="param"><span class="label">AI Provider</span><span class="val">${provider.name} — ${tier.name}</span></div>
+  <div class="param"><span class="label">Base Cost per User</span><span class="val">$${tier.base}/month</span></div>
+  <div class="param"><span class="label">AI Agents (Year 1)</span><span class="val">${totalAgentYr1} agents</span></div>
+  ${totalAgentYr1 > 0 ? `<div class="param"><span class="label">Agent Growth Rate (YoY)</span><span class="val">${state.agentGrowth}%</span></div>
+  <div class="param"><span class="label">Daily Invocations/Agent</span><span class="val">${state.agentInvocations.toLocaleString()}</span></div>` : ''}
+</div>
+
+<h2>3. Team User Cost Calculation</h2>
+
+<h3>How we calculate cost per user per month</h3>
+<p>Each department has a different AI usage intensity based on how heavily they rely on AI tools. The monthly cost per user in each department is calculated as:</p>
+
+<div class="formula">
+  Monthly Cost per User = Base Provider Cost &times; Usage Intensity &times; Department AI Intensity<br>
+  <br>
+  Example (${depts.length > 0 ? depts[0].name : 'Engineering'}):<br>
+  ${depts.length > 0 ? `$${tier.base} &times; ${intensityMult} &times; ${depts[0].aiIntensity} = <strong>${fmtCurrencyFull(depts[0].monthlyPerUser)}/month per user</strong>` : 'N/A'}
+</div>
+
+<h3>Department breakdown</h3>
+<p>Based on the <strong>${industryLabel}</strong> industry profile, department sizes and AI user counts are estimated as follows:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Department</th>
+      <th>Dept Size</th>
+      <th>% of Company</th>
+      <th>AI Users</th>
+      <th>AI Intensity</th>
+      <th>Cost Calculation</th>
+      <th>Year 1 Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${deptRows}
+    <tr style="font-weight:700;border-top:2px solid #e5e7eb;">
+      <td>Total Team Users</td>
+      <td></td>
+      <td></td>
+      <td>${depts.reduce((s,d) => s+d.aiUsers, 0)}</td>
+      <td></td>
+      <td></td>
+      <td><strong>${fmtCurrency(copYr[0])}</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Year-over-year growth</h3>
+<p>Team user costs grow at <strong>${state.growth}%</strong> per year, reflecting increasing adoption and usage intensity:</p>
+<div class="formula">
+  Year 1: ${fmtCurrency(copYr[0])}<br>
+  Year 2: ${fmtCurrency(copYr[0])} &times; growth factor = <strong>${fmtCurrency(copYr[1])}</strong><br>
+  Year 3: continues compounding = <strong>${fmtCurrency(copYr[2])}</strong><br>
+  <br>
+  3-Year Team User Total: <strong>${fmtCurrency(copYr[0]+copYr[1]+copYr[2])}</strong>
+</div>
+
+${totalAgentYr1 > 0 ? `
+<h2>4. AI Agent Cost Calculation</h2>
+
+<h3>How agent costs differ from team users</h3>
+<p>AI agents run autonomously and consume significantly more inference resources than human chat interactions.
+Unlike team users who send individual messages, agents execute multi-step reasoning chains, tool calls, and retries — often running continuously.</p>
+
+<p>We estimate agent costs by calculating a <strong>per-invocation cost</strong> based on the provider's base rate, then scaling by the agent's complexity multiplier and daily invocation volume:</p>
+
+<div class="formula">
+  Base cost per invocation = Provider base ($${tier.base}) &divide; 500 typical chat messages = <strong>${fmtCurrencyFull(costPerInvocation)}/invocation</strong><br>
+  <br>
+  Monthly cost per agent = Cost/invocation &times; Complexity multiplier &times; Daily invocations &times; 30 days<br>
+  <br>
+  Example (Workflow Agent at 5x complexity, ${state.agentInvocations.toLocaleString()} invocations/day):<br>
+  $${costPerInvocation.toFixed(4)} &times; 5 &times; ${state.agentInvocations.toLocaleString()} &times; 30 = <strong>${fmtCurrencyFull(costPerInvocation * 5 * state.agentInvocations * 30)}/month</strong>
+</div>
+
+<h3>Agent deployment and growth</h3>
+<p>Starting with <strong>${totalAgentYr1} agents</strong> in Year 1, growing at <strong>${state.agentGrowth}%</strong> per year.
+A slight efficiency factor (8% annual cost reduction) is applied to reflect improving model costs over time.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Agent Type</th>
+      <th>Complexity</th>
+      <th>Yr 1 Count</th>
+      <th>Yr 2 Count</th>
+      <th>Yr 3 Count</th>
+      <th>Cost/Agent/Mo</th>
+      <th>Year 1</th>
+      <th>Year 2</th>
+      <th>Year 3</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${agentRows}
+    <tr style="font-weight:700;border-top:2px solid #e5e7eb;">
+      <td>Total Agents</td>
+      <td></td>
+      <td>${totalAgentYr1}</td>
+      <td>${Math.round(totalAgentYr1 * (1 + agentGrowthRate))}</td>
+      <td>${Math.round(totalAgentYr1 * Math.pow(1 + agentGrowthRate, 2))}</td>
+      <td></td>
+      <td><strong>${fmtCurrency(agYr[0])}</strong></td>
+      <td><strong>${fmtCurrency(agYr[1])}</strong></td>
+      <td><strong>${fmtCurrency(agYr[2])}</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="formula">
+  3-Year AI Agent Total: <strong>${fmtCurrency(agYr[0]+agYr[1]+agYr[2])}</strong>
+</div>
+` : ''}
+
+<h2>${totalAgentYr1 > 0 ? '5' : '4'}. Combined 3-Year Investment Summary</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Cost Category</th>
+      <th>Year 1</th>
+      <th>Year 2</th>
+      <th>Year 3</th>
+      <th>3-Year Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Team Users</td>
+      <td>${fmtCurrency(copYr[0])}</td>
+      <td>${fmtCurrency(copYr[1])}</td>
+      <td>${fmtCurrency(copYr[2])}</td>
+      <td><strong>${fmtCurrency(copYr[0]+copYr[1]+copYr[2])}</strong></td>
+    </tr>
+    ${totalAgentYr1 > 0 ? `<tr>
+      <td>AI Agents</td>
+      <td>${fmtCurrency(agYr[0])}</td>
+      <td>${fmtCurrency(agYr[1])}</td>
+      <td>${fmtCurrency(agYr[2])}</td>
+      <td><strong>${fmtCurrency(agYr[0]+agYr[1]+agYr[2])}</strong></td>
+    </tr>` : ''}
+    <tr style="font-weight:700;border-top:2px solid #4338ca;">
+      <td>Total Investment</td>
+      <td>${fmtCurrency(yr[0])}</td>
+      <td>${fmtCurrency(yr[1])}</td>
+      <td>${fmtCurrency(yr[2])}</td>
+      <td style="color:#4338ca;font-size:1.1rem;">${fmtCurrency(total3yr)}</td>
+    </tr>
+  </tbody>
+</table>
+
+${totalAgentYr1 > 0 ? `
+<div class="highlight">
+  <strong>Key insight:</strong> AI agent spend represents
+  <strong>${Math.round(agYr[0]/(yr[0]||1)*100)}%</strong> of Year 1 costs but grows to
+  <strong>${Math.round(agYr[2]/(yr[2]||1)*100)}%</strong> by Year 3 — reflecting how autonomous agents
+  compound faster than team user adoption. Planning for this growth trajectory is critical for budgeting.
+</div>
+` : ''}
+
+<h2>${totalAgentYr1 > 0 ? '6' : '5'}. Assumptions & Caveats</h2>
+
+<ul style="color:#374151;margin-left:1.5rem;">
+  <li><strong>Pricing basis:</strong> Published API pricing and typical per-seat enterprise rates as of early 2025. Actual negotiated rates may differ.</li>
+  <li><strong>Usage intensity:</strong> "${INTENSITY_LABELS[state.intensity]}" maps to a ${intensityMult}x multiplier on a scale where 1.0 = medium usage (~500 API calls or chat messages per user per month).</li>
+  <li><strong>Department AI intensity:</strong> Reflects how heavily each department typically uses AI tools (e.g., Engineering at 1.8x consumes more tokens than HR at 0.8x).</li>
+  <li><strong>Growth model:</strong> Year-over-year growth compounds both the number of users adopting AI and the cost per user (at 30% of the headline growth rate, reflecting that usage intensity grows slower than headcount adoption).</li>
+  <li><strong>Industry profiles:</strong> Department size distributions are based on typical organisational structures for the ${industryLabel} sector.</li>
+  ${totalAgentYr1 > 0 ? `<li><strong>Agent costs:</strong> Based on estimated inference costs per invocation. Actual agent costs vary significantly based on context window usage, tool calling frequency, and retry patterns.</li>
+  <li><strong>Agent efficiency:</strong> An 8% annual cost reduction is applied to reflect improving model efficiency and falling inference costs.</li>` : ''}
+  ${state.provider === 'ms_sovereign' ? `<li><strong>Sovereign cloud premium:</strong> Microsoft sovereign/government cloud pricing includes a ~40-60% premium for dedicated infrastructure, data residency, FedRAMP/IL5 compliance, and restricted personnel clearances.</li>` : ''}
+  ${state.provider === 'meta' ? `<li><strong>Self-hosted costs:</strong> Meta/Llama costs reflect estimated GPU compute via cloud providers (not hardware purchase). Actual costs depend on GPU availability, utilisation rates, and ops overhead.</li>` : ''}
+  <li><strong>Volume discounts:</strong> This estimate does not account for volume discounts, committed-use agreements, or reserved capacity pricing, which could reduce costs by 15-40% for large deployments.</li>
+  <li><strong>Scope:</strong> Costs cover AI inference and platform spend only. Internal staffing (ML engineers, platform ops), change management programmes, and custom model fine-tuning are not included.</li>
+</ul>
+
+<div class="disclaimer">
+  <strong>Disclaimer:</strong> This estimate is for planning purposes only and does not constitute a binding quotation.
+  Actual costs will vary based on specific use cases, negotiated contracts, consumption patterns, and market pricing changes.
+  We recommend validating these projections with provider-specific quotes once deployment plans are confirmed.
+</div>
+
+<p style="margin-top:2rem;font-size:0.75rem;color:#9ca3af;text-align:center;">
+  Generated by AI Spend Estimator — ${today}
+</p>
+
+</body>
+</html>`;
+
+  const newWindow = window.open('', '_blank');
+  newWindow.document.write(html);
+  newWindow.document.close();
+}
+
 // ─── Init ───
 initDepartments();
 initIndustry();
@@ -1425,6 +1830,9 @@ initProviders();
 initSliders();
 initAgents();
 recalc();
+
+// Methodology button
+document.getElementById('btn-show-methodology').addEventListener('click', generateMethodologyPage);
 </script>
 </body>
 </html>
