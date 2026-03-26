@@ -218,6 +218,25 @@
     text-align: right;
     white-space: nowrap;
   }
+  .dept-users-input {
+    width: 52px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--accent2);
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: inherit;
+    padding: 2px 5px;
+    text-align: right;
+    outline: none;
+    -moz-appearance: textfield;
+  }
+  .dept-users-input::-webkit-inner-spin-button,
+  .dept-users-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  .dept-users-input:focus { border-color: var(--accent); }
+  .dept-users-input.overridden { color: #fbbf24; border-color: rgba(245,158,11,0.4); }
+  .dept-users-label { font-size: 0.62rem; color: var(--muted); }
 
   /* Results */
   .results-area { display: flex; flex-direction: column; gap: 1.5rem; }
@@ -920,6 +939,7 @@ let state = {
   provider: 'openai',
   tier: 2,
   departments: {},
+  deptUserOverrides: {},  // manual overrides for AI user counts per dept
   // Agent state
   agentMaturity: 'conservative',
   agentInvocations: 100,
@@ -932,6 +952,8 @@ DEPARTMENTS.forEach(d => state.departments[d.id] = d.defaultOn);
 function applyIndustryProfile(industryId) {
   const profile = INDUSTRY_PROFILES[industryId];
   if (!profile) return;
+  // Clear all manual overrides when industry changes
+  state.deptUserOverrides = {};
   DEPARTMENTS.forEach((dept, i) => {
     dept.pctOfCompany = profile.pct[i];
     state.departments[dept.id] = !!profile.on[i];
@@ -957,6 +979,11 @@ function initIndustry() {
   applyIndustryProfile(state.industry);
 }
 
+function getCalcAiUsers(dept) {
+  const deptSize = Math.round(state.employees * dept.pctOfCompany);
+  return Math.max(1, Math.round(deptSize * (state.adoption / 100)));
+}
+
 function initDepartments() {
   const list = document.getElementById('dept-list');
   DEPARTMENTS.forEach(dept => {
@@ -965,16 +992,39 @@ function initDepartments() {
     item.innerHTML = `
       <button class="dept-toggle ${state.departments[dept.id] ? 'on' : ''}" data-dept="${dept.id}"></button>
       <span class="dept-name" style="color:${dept.color}">${dept.name}</span>
-      <span class="dept-users" id="dept-users-${dept.id}">0 users</span>
+      <span class="dept-users" id="dept-users-${dept.id}">
+        <input type="number" class="dept-users-input" id="dept-input-${dept.id}" min="0" max="99999" value="0" data-dept="${dept.id}">
+        <span class="dept-users-label" id="dept-calc-${dept.id}"></span>
+      </span>
     `;
     list.appendChild(item);
   });
+  // Toggle clicks
   list.addEventListener('click', e => {
     const btn = e.target.closest('.dept-toggle');
     if (!btn) return;
     const id = btn.dataset.dept;
     state.departments[id] = !state.departments[id];
     btn.classList.toggle('on');
+    // Clear override when toggling off
+    if (!state.departments[id]) delete state.deptUserOverrides[id];
+    recalc();
+  });
+  // Input changes — set override
+  list.addEventListener('input', e => {
+    const input = e.target.closest('.dept-users-input');
+    if (!input) return;
+    const id = input.dataset.dept;
+    const dept = DEPARTMENTS.find(d => d.id === id);
+    const calcVal = getCalcAiUsers(dept);
+    const val = parseInt(input.value, 10);
+    if (!isNaN(val) && val !== calcVal) {
+      state.deptUserOverrides[id] = val;
+      input.classList.add('overridden');
+    } else {
+      delete state.deptUserOverrides[id];
+      input.classList.remove('overridden');
+    }
     recalc();
   });
 }
@@ -1101,7 +1151,8 @@ function calcDeptCosts() {
   DEPARTMENTS.forEach(dept => {
     if (!state.departments[dept.id]) return;
     const deptSize = Math.round(state.employees * dept.pctOfCompany);
-    const aiUsers = Math.max(1, Math.round(deptSize * adoptionRate));
+    const calcUsers = Math.max(1, Math.round(deptSize * adoptionRate));
+    const aiUsers = (dept.id in state.deptUserOverrides) ? state.deptUserOverrides[dept.id] : calcUsers;
 
     // Seats model: flat per-user fee (intensity doesn't affect cost, only headcount matters)
     // API model: cost scales with usage intensity and department AI intensity
@@ -1225,15 +1276,34 @@ function recalc() {
   const agents = calcAgentCosts();
   const { copilotMonths, agentMonths } = getMonthlyProjection();
 
-  // Update dept user counts
+  // Update dept user counts and inputs
   DEPARTMENTS.forEach(dept => {
-    const el = document.getElementById(`dept-users-${dept.id}`);
+    const input = document.getElementById(`dept-input-${dept.id}`);
+    const label = document.getElementById(`dept-calc-${dept.id}`);
+    if (!input || !label) return;
+    const calcVal = getCalcAiUsers(dept);
+    const isOverridden = dept.id in state.deptUserOverrides;
+
     if (!state.departments[dept.id]) {
-      el.textContent = 'off';
+      input.style.display = 'none';
+      label.textContent = 'off';
       return;
     }
+    input.style.display = '';
     const d = depts.find(x => x.id === dept.id);
-    el.textContent = d ? `~${d.aiUsers} users` : '0 users';
+    const displayVal = d ? d.aiUsers : calcVal;
+
+    // Only update input value if user isn't currently editing it
+    if (document.activeElement !== input) {
+      input.value = displayVal;
+    }
+    if (isOverridden) {
+      input.classList.add('overridden');
+      label.textContent = `est: ${calcVal}`;
+    } else {
+      input.classList.remove('overridden');
+      label.textContent = 'users';
+    }
   });
 
   // Copilot totals
