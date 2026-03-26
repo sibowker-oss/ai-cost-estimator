@@ -181,7 +181,7 @@
   .dept-list { display: flex; flex-direction: column; gap: 0.5rem; }
   .dept-item {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto 1fr auto auto;
     gap: 0.6rem;
     align-items: center;
     background: var(--bg);
@@ -219,17 +219,18 @@
     white-space: nowrap;
   }
   .dept-users-input {
-    width: 52px;
+    width: 58px;
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 4px;
     color: var(--accent2);
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     font-weight: 700;
     font-family: inherit;
-    padding: 2px 5px;
+    padding: 4px 6px;
     text-align: right;
     outline: none;
+    cursor: text;
     -moz-appearance: textfield;
   }
   .dept-users-input::-webkit-inner-spin-button,
@@ -992,10 +993,8 @@ function initDepartments() {
     item.innerHTML = `
       <button class="dept-toggle ${state.departments[dept.id] ? 'on' : ''}" data-dept="${dept.id}"></button>
       <span class="dept-name" style="color:${dept.color}">${dept.name}</span>
-      <span class="dept-users" id="dept-users-${dept.id}">
-        <input type="number" class="dept-users-input" id="dept-input-${dept.id}" min="0" max="99999" value="0" data-dept="${dept.id}">
-        <span class="dept-users-label" id="dept-calc-${dept.id}"></span>
-      </span>
+      <input type="text" inputmode="numeric" pattern="[0-9]*" class="dept-users-input" id="dept-input-${dept.id}" value="0" data-dept="${dept.id}">
+      <span class="dept-users-label" id="dept-calc-${dept.id}"></span>
     `;
     list.appendChild(item);
   });
@@ -1010,22 +1009,59 @@ function initDepartments() {
     if (!state.departments[id]) delete state.deptUserOverrides[id];
     recalc();
   });
-  // Input changes — set override
-  list.addEventListener('input', e => {
-    const input = e.target.closest('.dept-users-input');
-    if (!input) return;
+  // Input changes — set override on change (blur or Enter) and on input
+  function handleDeptInput(input) {
     const id = input.dataset.dept;
     const dept = DEPARTMENTS.find(d => d.id === id);
     const calcVal = getCalcAiUsers(dept);
-    const val = parseInt(input.value, 10);
-    if (!isNaN(val) && val !== calcVal) {
+    const raw = input.value.replace(/[^0-9]/g, '');
+    const val = raw === '' ? NaN : parseInt(raw, 10);
+    if (!isNaN(val) && val >= 0 && val !== calcVal) {
       state.deptUserOverrides[id] = val;
       input.classList.add('overridden');
+    } else if (isNaN(val)) {
+      // Still typing / cleared — don't recalc yet
+      return;
     } else {
       delete state.deptUserOverrides[id];
       input.classList.remove('overridden');
     }
     recalc();
+  }
+  // Update on every keystroke
+  list.addEventListener('input', e => {
+    if (e.target.classList.contains('dept-users-input')) {
+      handleDeptInput(e.target);
+    }
+  });
+  // Enter key blurs the input
+  list.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.classList.contains('dept-users-input')) {
+      e.target.blur();
+    }
+  });
+  // On blur, clean up the value and recalc
+  list.addEventListener('focusout', e => {
+    if (e.target.classList.contains('dept-users-input')) {
+      const input = e.target;
+      const id = input.dataset.dept;
+      const dept = DEPARTMENTS.find(d => d.id === id);
+      const calcVal = getCalcAiUsers(dept);
+      const raw = input.value.replace(/[^0-9]/g, '');
+      const val = raw === '' ? calcVal : parseInt(raw, 10);
+      if (val !== calcVal) {
+        state.deptUserOverrides[id] = val;
+      } else {
+        delete state.deptUserOverrides[id];
+      }
+      recalc();
+    }
+  });
+  // Select all text on focus for easy replacement
+  list.addEventListener('focusin', e => {
+    if (e.target.classList.contains('dept-users-input')) {
+      setTimeout(() => e.target.select(), 0);
+    }
   });
 }
 
