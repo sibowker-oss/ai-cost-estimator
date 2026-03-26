@@ -1086,24 +1086,38 @@ function updateAgentCountDisplay() {
 }
 
 // ─── Calculation Engine ───
+function isSeatsModel() {
+  return state.tier === 1;
+}
+
 function calcDeptCosts() {
   const baseCost = PROVIDERS[state.provider].tiers[state.tier].base;
   const intensityMult = INTENSITY_MULT[state.intensity];
   const adoptionRate = state.adoption / 100;
   const growthRate = state.growth / 100;
+  const seats = isSeatsModel();
 
   const results = [];
   DEPARTMENTS.forEach(dept => {
     if (!state.departments[dept.id]) return;
     const deptSize = Math.round(state.employees * dept.pctOfCompany);
     const aiUsers = Math.max(1, Math.round(deptSize * adoptionRate));
-    const monthlyPerUser = baseCost * intensityMult * dept.aiIntensity;
+
+    // Seats model: flat per-user fee (intensity doesn't affect cost, only headcount matters)
+    // API model: cost scales with usage intensity and department AI intensity
+    const monthlyPerUser = seats
+      ? baseCost
+      : baseCost * intensityMult * dept.aiIntensity;
 
     const years = [0, 0, 0];
     for (let yr = 0; yr < 3; yr++) {
       const scale = Math.pow(1 + growthRate, yr);
       const usersThisYear = Math.round(aiUsers * Math.min(scale, deptSize / aiUsers));
-      const costPerUser = monthlyPerUser * Math.pow(1 + growthRate * 0.3, yr);
+      // Seats: cost stays flat, only user count grows
+      // API: cost per user also grows (usage deepens over time)
+      const costPerUser = seats
+        ? monthlyPerUser
+        : monthlyPerUser * Math.pow(1 + growthRate * 0.3, yr);
       years[yr] = usersThisYear * costPerUser * 12;
     }
     results.push({
@@ -1452,7 +1466,10 @@ function generateMethodologyPage() {
         <td>${Math.round(d.pctOfCompany*100)}%</td>
         <td>${aiUsers}</td>
         <td>${d.aiIntensity}x</td>
-        <td>$${tier.base} x ${intensityMult} x ${d.aiIntensity} = <strong>${fmtCurrencyFull(d.monthlyPerUser)}</strong></td>
+        <td>${isSeatsModel()
+          ? `$${tier.base} flat = <strong>${fmtCurrencyFull(d.monthlyPerUser)}</strong>`
+          : `$${tier.base} x ${intensityMult} x ${d.aiIntensity} = <strong>${fmtCurrencyFull(d.monthlyPerUser)}</strong>`
+        }</td>
         <td><strong>${fmtCurrency(d.years[0])}</strong></td>
       </tr>`;
   }).join('');
@@ -1638,14 +1655,35 @@ function generateMethodologyPage() {
 <h2>3. Team User Cost Calculation</h2>
 
 <h3>How we calculate cost per user per month</h3>
-<p>Each department has a different AI usage intensity based on how heavily they rely on AI tools. The monthly cost per user in each department is calculated as:</p>
+${isSeatsModel() ? `
+<p>With a <strong>per-seat licensing model</strong> (${tier.name}), each user pays a flat monthly fee regardless of how much they use the tool. Cost differences between departments come from <strong>how many people adopt</strong>, not how intensely they use it.</p>
 
 <div class="formula">
-  Monthly Cost per User = Base Provider Cost &times; Usage Intensity &times; Department AI Intensity<br>
+  Monthly Cost per User = Flat Seat Price = <strong>$${tier.base}/month</strong><br>
+  <br>
+  This is the same for all departments. Total cost is driven by headcount:<br>
+  Department Annual Cost = $${tier.base} &times; AI Users &times; 12 months
+</div>
+
+<p style="color:#6b7280;font-size:0.85rem;"><em>Note: Seat-based pricing includes rate limits (e.g. message caps per user per day). If usage exceeds these limits, the organisation would need to upgrade to an API-based tier where costs scale with consumption.</em></p>
+` : `
+<p>With <strong>API / token-based pricing</strong> (${tier.name}), costs vary by department because different teams consume different volumes of tokens. An engineering team writing code with large context windows uses far more tokens than an HR team drafting job posts.</p>
+
+<p>We model this with two multipliers:</p>
+<ul style="margin:0.5rem 0 0.75rem 1.5rem;color:#374151;">
+  <li><strong>Usage Intensity (${INTENSITY_LABELS[state.intensity]}, ${intensityMult}x)</strong> — overall company usage level, from Light (0.4x) to Heavy (2.2x)</li>
+  <li><strong>Department AI Intensity</strong> — how heavily each department relies on AI (e.g. Engineering 1.8x, HR 0.8x)</li>
+</ul>
+
+<div class="formula">
+  Monthly Cost per User = Base API Cost &times; Usage Intensity &times; Dept AI Intensity<br>
   <br>
   Example (${depts.length > 0 ? depts[0].name : 'Engineering'}):<br>
   ${depts.length > 0 ? `$${tier.base} &times; ${intensityMult} &times; ${depts[0].aiIntensity} = <strong>${fmtCurrencyFull(depts[0].monthlyPerUser)}/month per user</strong>` : 'N/A'}
 </div>
+
+<p style="color:#6b7280;font-size:0.85rem;"><em>The base API cost ($${tier.base}/user/month) represents approximately 500 typical API calls or chat-equivalent interactions per month at standard token lengths.</em></p>
+`}
 
 <h3>Department breakdown</h3>
 <p>Based on the <strong>${industryLabel}</strong> industry profile, department sizes and AI user counts are estimated as follows:</p>
@@ -1677,7 +1715,10 @@ function generateMethodologyPage() {
 </table>
 
 <h3>Year-over-year growth</h3>
-<p>Team user costs grow at <strong>${state.growth}%</strong> per year, reflecting increasing adoption and usage intensity:</p>
+<p>Team user costs grow at <strong>${state.growth}%</strong> per year. ${isSeatsModel()
+  ? 'With seat-based pricing, growth comes entirely from <strong>more users adopting AI</strong> — the per-seat cost stays flat.'
+  : 'With API pricing, growth comes from both <strong>more users adopting AI</strong> and <strong>existing users consuming more tokens</strong> as they integrate AI deeper into their workflows (usage cost grows at 30% of the headline growth rate).'
+}</p>
 <div class="formula">
   Year 1: ${fmtCurrency(copYr[0])}<br>
   Year 2: ${fmtCurrency(copYr[0])} &times; growth factor = <strong>${fmtCurrency(copYr[1])}</strong><br>
@@ -1795,7 +1836,10 @@ ${totalAgentYr1 > 0 ? `
   <li><strong>Pricing basis:</strong> Published API pricing and typical per-seat enterprise rates as of early 2025. Actual negotiated rates may differ.</li>
   <li><strong>Usage intensity:</strong> "${INTENSITY_LABELS[state.intensity]}" maps to a ${intensityMult}x multiplier on a scale where 1.0 = medium usage (~500 API calls or chat messages per user per month).</li>
   <li><strong>Department AI intensity:</strong> Reflects how heavily each department typically uses AI tools (e.g., Engineering at 1.8x consumes more tokens than HR at 0.8x).</li>
-  <li><strong>Growth model:</strong> Year-over-year growth compounds both the number of users adopting AI and the cost per user (at 30% of the headline growth rate, reflecting that usage intensity grows slower than headcount adoption).</li>
+  <li><strong>Growth model:</strong> ${isSeatsModel()
+    ? 'With seat-based pricing, year-over-year growth applies only to the number of users adopting AI. The per-seat cost remains flat — cost growth is purely a headcount function.'
+    : 'With API/token-based pricing, year-over-year growth compounds both the number of users adopting AI and the cost per user (at 30% of the headline growth rate, reflecting that usage intensity grows slower than headcount adoption).'
+  }</li>
   <li><strong>Industry profiles:</strong> Department size distributions are based on typical organisational structures for the ${industryLabel} sector.</li>
   ${totalAgentYr1 > 0 ? `<li><strong>Agent costs:</strong> Based on estimated inference costs per invocation. Actual agent costs vary significantly based on context window usage, tool calling frequency, and retry patterns.</li>
   <li><strong>Agent efficiency:</strong> An 8% annual cost reduction is applied to reflect improving model efficiency and falling inference costs.</li>` : ''}
